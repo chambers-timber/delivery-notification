@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chambers Timber Delivery Notification System</title>
+    <style>
+        /* General Page Styling */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+            color: black;
+        }
+        
+        /* Banner Styling */
+        .banner {
+            background-color: #f5de20;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            gap: 10px;
+        }
+        
+        .banner img {
+            height: 30px; /* reduced from 50px */
+        }
+        
+        .banner h1 {
+            font-size: 20px; /* reduced from 22px */
+            margin: 0;
+        }
+        
+        /* Main Layout - Two Columns */
+        .main-container {
+            display: flex;
+            justify-content: flex-start;
+            max-width: 900px; /* reduced from 900px */
+            margin: 10px auto;
+            gap: 10px;
+        }
+        
+        /* History Section */
+        .history {
+            background: #f5de20;
+            padding: 10px;
+            width: 35%; /* reduced from 30% */
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-in-out;
+            color: black;
+        }
+        
+        .history h3 {
+            border-bottom: 2px solid black;
+            padding-bottom: 1px;
+            text-align: center;
+            font-size: 15px;
+        }
+        
+        /* History List */
+        .history-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 10px;
+            max-height: 750px;
+            overflow-y: auto;
+        }
+        
+        .history-list li {
+            background: #ffffff;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 4px solid black;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 5px;
+            transition: background 0.3s;
+            color: black;
+        }
+        
+        .history-list li:hover {
+            background: #fafaf8;
+        }
+        
+        /* Notification Form */
+        .container {
+            background: #b8b3b3;
+            padding: 18px; /* reduced from 25px */
+            width: 60%; /* increased slightly */
+            border-radius: 8px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            color: black;
+        }
+        
+        /* Form Elements */
+        label {
+            font-weight: bold;
+            font-size: 16px; /* added for tighter layout */
+            display: block;
+            margin-top: 1px;
+            color: rgb(10, 1, 1);
+        }
+        
+        input, select, textarea {
+            width: 98%;
+            padding: 5px;
+            margin-top: 5px;
+            border: 2px solid #222220;
+            border-radius: 10px;
+            font-size: 15px;
+            background-color: white;
+            color: black;
+            
+        }
+        #customerAddress {
+        width: 80%;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #f5de20;
+        }
+        
+        /* Message Preview */
+        textarea {
+            height: 190px;
+            resize: vertical;
+            margin-top: 10px;
+            background-color: white;
+            color: black;
+            font-size: 13px;
+            padding: 5px;
+        }
+        
+        /* Send Button */
+        button {
+            background-color: #f5de20;
+            color: black;
+            border: none;
+            padding: 11px;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px; /* reduced from 18px */
+            transition: background 0.3s ease, transform 0.2s;
+            margin-top: 15px;
+        }
+        
+        button:hover {
+            background-color: black;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        /* Loading Animation */ 
+        #loading {
+            text-align: center;
+            font-size: 16px; /* reduced from 18px */
+            margin-top: 10px;
+            color: #f5de20;
+            display: none;
+        }
+        
+        /* Success Popup */
+        #success-popup {
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #f5de20;
+            color: black;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        
+        /* Clear History Button */
+        .clear-history-btn {
+            background-color: rgb(240, 21, 21);
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 15px;
+            margin-top: 10px;
+            transition: background 0.3s ease, transform 0.2s;
+        }
+        
+        .clear-history-btn:hover {
+            background-color: white;
+            color: black;
+            transform: scale(1.05);
+        }
+        
+        /* Success Message Styling */
+        #success-message {
+            text-align: center;
+            font-size: 15px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .top-banner {
+            text-align: right;
+            background-color: #ffffff;
+         
+        }
+
+        .top-banner img {
+            max-width: 27%;
+            height: auto;
+            display: block;
+            margin-left: auto;
+            margin-right: 550px;
+}
+
+
+        </style>
+        
+</head>
+
+<!-- FLEX CONTAINER: Main Layout (Left + Right Side) -->
+<div style="display: flex; height: 100vh; overflow: hidden;">
+
+    <!-- LEFT SIDE: Main Panel -->
+    <div style="width: 50%; min-width: 700px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
+      <!-- Success / Status Messages -->
+      <div id="loading" class="hidden">Sending... ⏳</div>
+      <p id="response" class="message"></p>
+      <div id="success-popup" class="hidden">✅ Message Sent Successfully!</div>
+  
+      <!-- SPLIT PANEL: History + Form -->
+      <div style="display: flex; gap: 30px;">
+        <!-- ORDER HISTORY -->
+        <div class="history" style="flex: 1; max-width: 300px;">
+          <h3>📜 Order History</h3>
+          <ul id="history-list" class="history-list" style="max-height: 80vh; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;"></ul>
+        </div>
+  
+        <!-- NOTIFICATION FORM -->
+        <div class="container" style="flex: 2;">
+          <h2 style="margin-top: 0;">📩 WhatsApp Delivery Notification</h2>
+  
+          <!-- START: FORM FIELDS -->
+          <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+              <label for="phone">📞 Customer's Number:</label><br>
+              <input type="text" id="phone" value="07894 802 472" style="width: 100%;">
+            </div>
+            <div style="flex: 1;">
+              <label for="orderNumber">📦 Order Number:</label><br>
+              <input type="text" id="orderNumber" style="width: 95%;">
+            </div>
+          </div>
+  
+          <div style="display: flex; gap: 20px; margin-top: 10px;">
+            <div style="flex: 1;">
+              <label for="deliveryDate">📅 Delivery Date</label><br>
+              <input type="date" id="deliveryDate" style="width: 100%;">
+            </div>
+            <div style="flex: 1;">
+              <label for="siteContact">📞 Site Contact: </label><br>
+              <input type="text" id="siteContact" style="width: 95%;">
+            </div>
+          </div>
+  
+          <div style="margin-top: 10px;">
+            <label for="customerAddress">📍 Delivery Address:</label><br>
+            <input type="text" id="customerAddress" placeholder="397 Romford Rd, E7 8AB" style="width: 98%;">
+          </div>
+  
+          <div style="display: flex; gap: 20px; margin-top: 10px;">
+            <div style="flex: 2;">
+              <label for="messageTemplate">📝 Select Message:</label><br>
+              <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
+                <option value="">Choose a template...</option>
+                <option value="HXe409d244b93e3dd70144789d2e797664">On its way 1st drop</option>
+                <option value="HXb2d2ab9e1ac3fac1909cb6d2bce1b15f">Order Confirmation</option>
+                <option value="HXea334a5a136b808854eab2755556dd29">Collection Notification</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label for="etaDropdown">⏱ ETA:</label><br>
+              <select id="etaDropdown" onchange="updateMessage()" style="width: 100%;">
+                <option value="">Select ETA...</option>
+                <option value="7:00am - 9:00am">7am - 9am</option>
+                <option value="9:00am - 11:00am">9am - 11am</option>
+                <option value="11:00am - 1:00pm">11am - 1pm</option>
+                <option value="1:00pm - 4:00pm">1pm - 4pm</option>
+                <option value="7:00am - 12:00pm">7am - 12pm</option>
+                  <option value="12:00pm - 4:00pm">12pm - 4pm</option>
+                  <option value="7:00am - 8:00am">7am - 8am</option>
+                  <option value="8:00am - 9:00am">8am - 9am</option>
+                  <option value="9:00am - 10:00am">9am - 10am</option>
+                  <option value="10:00am - 11:00am">10am - 11am</option>
+                  <option value="11:00am - 12:00pm">11am - 12pm</option>
+                  <option value="12:00pm - 1:00pm">12pm - 1pm</option>
+                  <option value="1:00pm - 2:00pm">1pm - 2pm</option>
+                  <option value="2:00pm - 3:00pm">2pm - 3pm</option>
+                  <option value="3:00pm - 4:00pm">3pm - 4pm</option>
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                  <option value="Multidrop">Multidrop</option>
+              </select>
+            </div>
+          </div>
+  
+          <div style="margin-top: 10px;">
+            <label for="message">🖊️ Message Preview:</label><br>
+            <textarea id="message" readonly style="width: 98%; height: 80px;"></textarea>
+          </div>
+  
+          <div style="display: flex; gap: 20px; margin-top: 10px;">
+            <div style="flex: 1;">
+              <label for="driver">🚛 Select Driver:</label><br>
+              <select id="driver" style="width: 100%;">
+                <option value="">Choose a driver...</option>
+                <option value="Russel - 07123456789">Russel</option>
+                <option value="Ricky - 07234567890">Ricky</option>
+                <option value="Terry - 07345678901">Terry</option>
+                <option value="Jay - 07456789012">Jay</option>
+                <option value="John - 07567890123">John</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label for="vehicleReg">🚗 Vehicle Reg:</label><br>
+              <select id="vehicleReg" style="width: 100%;">
+                <option value="">Choose a vehicle...</option>
+                <option value="SH 66 DUJ">SH 66 DUJ</option>
+                <option value="LT 72 ADV">LT 72 ADV</option>
+                <option value="LK 67 SWN">LK 67 SWN</option>
+                <option value="LX 21 EZH (HIAB)">LX 21 EZH (HIAB)</option>
+              </select>
+            </div>
+          </div>
+  
+          <button onclick="sendMessage()" style="margin-top: 15px;">Send Notification</button>
+        </div>
+      </div>
+    </div>
+    <!-- END: FORM FIELDS -->
+
+   <!-- ************************************************************************************************ -->
+
+    <!-- RIGHT SIDE: Inbox, Chat Thread & Reply -->
+    <div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 30px; overflow-y: auto;">
+  
+      <!-- Inbox -->
+      <h3 style="margin-top: 0; margin-bottom: 10px;">📥 Inbox</h3>
+      <div id="inbox" style="
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 15px;
+        font-size: 13px;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+      ">
+        <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447894802472')">
+          <strong>+44 7894 802472</strong> – Can you confirm delivery is on track?
+        </div>
+        <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447895123456')">
+          <strong>+44 7895 123456</strong> – Site contact is unavailable...
+        </div>
+        <div class="inbox-item" style="padding: 6px 0; cursor: pointer;" onclick="openChat('+447896654321')">
+          <strong>+44 7896 654321</strong> – Thanks for the update, ETA...
+        </div>
+      </div>
+  
+      <!-- Chat Thread -->
+      <h3 style="margin-bottom: 15px;">💬 Message Chat</h3>
+      <div id="chat-thread" style="
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 15px;
+        font-size: 13px;
+        max-height: 400px;
+        overflow-y: auto;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      "></div>
+  
+      <!-- Reply Box -->
+      <div style="
+        margin-top: 15px;
+        background-color: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      ">
+        <textarea id="replyMessage" placeholder="Type your reply here..." style="
+          width: 100%;
+          height: 80px;
+          font-size: 13px;
+          padding: 10px;
+          border-radius: 4px;
+          border: 1px solid #ccc;
+          resize: vertical;
+        "></textarea>
+  
+        <button onclick="addReply()" style="
+          margin-top: 10px;
+          padding: 8px 16px;
+          background-color: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 13px;
+          cursor: pointer;
+        ">
+          Send Reply
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script>
+    function addReply() {
+      const msg = document.getElementById('replyMessage').value.trim();
+      if (!msg) return;
+  
+      const container = document.getElementById('chat-thread');
+      const replyBlock = document.createElement('div');
+      replyBlock.style.marginBottom = '10px';
+      replyBlock.innerHTML = `<strong style="color: #007bff;">👤 You</strong><br>${msg}`;
+      container.appendChild(replyBlock);
+  
+      document.getElementById('replyMessage').value = '';
+      container.scrollTop = container.scrollHeight;
+    }
+  
+    function openChat(number) {
+      const chatThread = document.getElementById('chat-thread');
+      chatThread.innerHTML = ''; // Clear previous messages
+  
+      // Simulate loaded messages
+      const msg = document.createElement('div');
+      msg.innerHTML = `<strong style="color: #28a745;">📞 ${number}</strong><br>Hello, can I get an update on delivery?`;
+      msg.style.marginBottom = '10px';
+      chatThread.appendChild(msg);
+    }
+    // ✅ Poll for message status updates every 5 seconds
+setInterval(() => {
+    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+
+    savedHistory.forEach((entry, index) => {
+        if (!entry.messageSid || entry.status === 'read') return; // Skip completed or missing SIDs
+
+        fetch(`https://a787-151-2-156-66.ngrok-free.app/message-status/${entry.messageSid}`) 
+            .then(res => res.json())
+            .then(data => {
+                if (data.status && data.status !== entry.status) {
+                    console.log(`🔄 Status update: ${entry.messageSid} changed to ${data.status}`);
+                    savedHistory[index].status = data.status;
+                    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
+                    loadHistory();
+                }
+            })
+            .catch(err => console.warn('❌ Error checking status:', err));
+    });
+}, 5000);
+
+  </script>
+  
+    <script>
+        let selectedNumber = null;
+
+function selectMessage(el) {
+  // Deselect all
+  document.querySelectorAll('.incoming-message').forEach(msg => {
+    msg.style.backgroundColor = '';
+  });
+
+  // Highlight selected
+  el.style.backgroundColor = '#e0f0ff';
+
+  // Store number and update display
+  selectedNumber = el.dataset.number;
+  document.getElementById('replying-to').innerText = `Replying to: ${selectedNumber}`;
+}
+
+
+    function updateMessage() {
+        const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+        const customerAddress = document.getElementById('customerAddress').value.trim();
+        const siteContact = document.getElementById('siteContact').value.trim();
+        const deliveryDateInput = document.getElementById('deliveryDate').value;
+        const selectedTemplate = document.getElementById('messageTemplate').value;
+
+        // ✅ Special case: Collection Template — minimal format, only Order No required
+        if (selectedTemplate === "Ready_for_collection") {
+            let fullMessage = orderNumber ? `ORDER COLLECTION\nOrder No. ${orderNumber}\n\n` : "ORDER COLLECTION\n\n";
+            fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
+            document.getElementById('message').value = fullMessage;
+            return; // Skip rest of function for this case
+        }
+
+        let fullMessage = orderNumber ? `PO: ${orderNumber}\n\n` : "";
+
+        switch (selectedTemplate) {
+            case "On_its_way_1st":
+                fullMessage += `HXe409d244b93e3dd70144789d2e797664.\n\n`;
+                break;
+            case "Out_for_delivery_2nd":
+                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 1 stop ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+                break;
+            case "Out_for_delivery_3rd":
+                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 2 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+                break;
+            case "Out_for_delivery_4th":
+                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 3 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+                break;
+            case "First_drop_confirmation":
+                fullMessage += `We are pleased to confirm that your order has been booked in with our transport team for a First Drop, please see below for your delivery details.\n\n`;
+                break;
+            case "On_its_way_12_2":
+                fullMessage += `We are pleased to confirm that your order is now on its way. Approx ETA 12-2pm. Our driver will call you on arrival.\n\n`;
+                break;
+            case "Delivered":
+                fullMessage += `We are pleased to confirm that your order has now been successfully delivered.\n\n`;
+                break;
+            case "Order_Confirmation_Direct":
+                fullMessage += `Your order is now booked in with our transport team, see below for delivery details, you will receive a delivery notification when your order is on it's way.\n\n`;
+                break;
+            case "Order_Confirmation":
+                fullMessage += `Thank you for shopping with us.\n\nWe are pleased to confirm that your order is now booked in with our transport team please see below for details, you will receive a delivery notification when your order is on it's way.\n\n`;
+                break;
+            case "Order_Status_O4D":
+                fullMessage += `Order Status: Out for delivery\n\n`;
+                break;
+            case "Order_Status_Picking":
+                fullMessage += `Order Status: Loading\n\n`;
+                break;
+            case "HIAB_Delivery":
+                fullMessage += `DELIVERY CONFIRMATION\n\nOrder Status: Out for delivery\nVehicle: Lorry- 18 Ton -Rigid \nDriver: Ricky\n\n`;
+                break;
+            default:
+                fullMessage += `[Select a message template]\n\n`;
+                break;
+        }
+
+        // ✅ Format delivery date to "Thursday 15th March 25"
+        if (deliveryDateInput) {
+            const dateObj = new Date(deliveryDateInput);
+            const day = dateObj.toLocaleDateString("en", { weekday: "long" });
+            const dayNum = dateObj.getDate();
+            const month = dateObj.toLocaleDateString("en", { month: "long" });
+            const year = dateObj.getFullYear().toString().slice(-2);
+            const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? "st" :
+                        (dayNum === 2 || dayNum === 22) ? "nd" :
+                        (dayNum === 3 || dayNum === 23) ? "rd" : "th";
+            const formattedDate = `${day} ${dayNum}${suffix} ${month} ${year}`;
+            fullMessage += `📅 Delivery Date: \n${formattedDate}\n\n`;
+        }
+
+        const etaValue = document.getElementById("etaDropdown").value;
+        if (etaValue) {
+            fullMessage += `⏱ ETA: \n${etaValue}\n\n`;
+        }
+
+        if (customerAddress) {
+            fullMessage += `📍 Delivery Address: \n${customerAddress}\n\n`;
+        }
+
+        if (siteContact) {
+            fullMessage += `📞 ${siteContact}\n\n`;
+        }
+
+        fullMessage += `Kind Regards,\nSales Team @ ChambersTimber.com`;
+        document.getElementById('message').value = fullMessage;
+    }
+
+
+function clearForm() {
+    let form = document.getElementById("notificationForm");
+
+    if (form) {
+        form.reset(); // ✅ Fully reset the form
+        console.log("✅ Full form reset!"); // Debugging log
+    } else {
+        console.warn("⚠️ No form found! Make sure your form has the correct ID.");
+    }
+
+    // Manually clear fields in case reset() doesn't work
+    document.getElementById('phone').value = "07894 802 472";
+    document.getElementById('orderNumber').value = "";
+    document.getElementById('customerAddress').value = ""; // ✅ Now resets Address
+    document.getElementById('messageTemplate').selectedIndex = 0;
+    document.getElementById('message').value = "";
+    document.getElementById('siteContact').value = "";
+    document.getElementById('driver').selectedIndex = 0;
+    document.getElementById('vehicleReg').selectedIndex = 0;
+    document.getElementById('etaDropdown').selectedIndex = 0;
+    document.getElementById('deliveryDate').value = "";
+
+
+
+    console.log("✅ All fields cleared manually!");
+}
+
+// Function to load message history from localStorage 
+function displayHistory() {
+    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+    const historyList = document.getElementById('history-list'); // or your element ID
+    historyList.innerHTML = '';
+
+    savedHistory.forEach(item => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'history-entry'; // use this for styling if needed
+
+        entryDiv.innerText = `Order: ${item.orderNumber}
+Template: ${item.templateLabel}
+Driver: ${item.driverName} - ${item.driverPhone}
+📅 ${item.dateTime}, ${item.status}`;
+
+        historyList.appendChild(entryDiv);
+    });
+}
+
+
+// ✅ Load history when the page loads
+window.onload = loadHistory;
+
+
+// Function to save message history to localStorage
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent', messageSid = '') {
+    let savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+
+    const dateTime = new Date();
+    const formattedDate = dateTime.toLocaleDateString('en');
+    const formattedTime = dateTime.toLocaleTimeString('en');
+    const fullDateTime = `${formattedDate}, ${formattedTime}`;
+
+    const historyItem = {
+        orderNumber,
+        templateLabel,
+        driverName,
+        driverPhone,
+        dateTime: fullDateTime,
+        status,
+        messageSid // ✅ this is critical for polling
+    };
+
+    savedHistory.unshift(historyItem);
+    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
+}
+
+
+function loadHistory() {
+    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '';
+
+    savedHistory.forEach(item => {
+        const entry = document.createElement('li');
+        entry.innerText = `Order: ${item.orderNumber}
+Template: ${item.templateLabel}
+Driver: ${item.driverName} - ${item.driverPhone}
+📅 ${item.dateTime}, ${item.status}`;
+        historyList.appendChild(entry);
+    });
+}
+
+
+
+// Updated sendMessage() function
+function sendMessage() {
+    let phone = document.getElementById('phone').value.trim();
+    let orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+    let customerAddress = document.getElementById('customerAddress').value.trim();
+    let etaValue = document.getElementById("etaDropdown").value;
+    let siteContact = document.getElementById('siteContact').value.trim();
+    let templateDropdown = document.getElementById('messageTemplate');
+    let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
+    const driverValue = document.getElementById('driver').value;
+    const [driverName, driverPhone] = driverValue.split(' - ');
+
+    let vehicleReg = document.getElementById('vehicleReg').value;
+
+    const responseText = document.getElementById('response');
+    const loading = document.getElementById('loading');
+    const deliveryDate = document.getElementById('deliveryDate').value;
+
+    if (!phone) {
+        responseText.style.color = "red";
+        responseText.innerHTML = "Please enter a valid phone number.";
+        return;
+    }
+
+    loading.style.display = "block";
+    responseText.innerHTML = "";
+
+    fetch('https://a787-151-2-156-66.ngrok-free.app/send-message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            phone,
+            orderNumber,
+            eta: etaValue,
+            deliveryDate,
+            customerAddress,
+            siteContact,
+            driver,
+            vehicleReg,
+            templateSid: templateDropdown.value
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        loading.style.display = "none";
+
+        if (data.success) {
+            responseText.style.color = "green";
+            responseText.innerHTML = "Message sent successfully! ✅";
+
+            const sid = data.sid || '';
+            saveHistory(orderNumber, templateLabel, driverName, driverPhone, 'Sent', sid);
+
+            loadHistory();
+            clearForm();
+            setTimeout(() => { responseText.innerHTML = ""; }, 3001);
+        } else {
+            throw new Error(data.error || "Unknown error occurred");
+        }
+    })
+    .catch(error => {
+        loading.style.display = "none";
+        responseText.style.color = "red";
+        responseText.innerHTML = `Error: ${error.message}`;
+    });
+}
+
+
+
+
+
+
+
+//working 23/04/25 @ 8:54
+
+    </script>
+
+</body>
+</html>
