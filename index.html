@@ -701,7 +701,7 @@ function sendMessage() {
     loading.style.display = "block";
     responseText.innerHTML = "";
 
-    fetch('https://a787-151-2-156-66.ngrok-free.app/send-message', {
+    fetch('https://delivery-notification.onrender.com/send-message', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -747,11 +747,6 @@ function sendMessage() {
         responseText.innerHTML = `Error: ${error.message}`;
     });
 }
-
-
-
-
-
 
 
 //working 23/04/25 @ 8:54
