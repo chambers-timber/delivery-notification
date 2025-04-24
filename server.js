@@ -90,7 +90,7 @@ app.post('/send-message', async (req, res) => {
       contentSid: templateSid,
       contentVariables: contentVariables,
       contentLanguage: 'en',
-      statusCallback: 'https://a787-151-2-156-66.ngrok-free.app/status-callback'
+      statusCallback: 'https://delivery-notification.onrender.com/status-callback'
     });
 
     console.log('✅ WhatsApp template message sent. SID:', message.sid);
