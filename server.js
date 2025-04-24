@@ -145,6 +145,15 @@ app.get('/inbox', (req, res) => {
   res.json(inboxMessages);
 });
 
+const path = require('path');
+
+// Serve index.html statically
+app.use(express.static(path.join(__dirname)));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // ✅ Start the server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
