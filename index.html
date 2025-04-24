@@ -457,7 +457,7 @@ setInterval(() => {
     savedHistory.forEach((entry, index) => {
         if (!entry.messageSid || entry.status === 'read') return; // Skip completed or missing SIDs
 
-        fetch(`https://a787-151-2-156-66.ngrok-free.app/message-status/${entry.messageSid}`) 
+        fetch(`https://delivery-notification.onrender.com/message-status/${entry.messageSid}`) 
             .then(res => res.json())
             .then(data => {
                 if (data.status && data.status !== entry.status) {
