@@ -150,7 +150,7 @@ app.get('/inbox', (req, res) => {
 
 const path = require('path');
 
-// Serve index.html statically
+// Serve index.html statically 
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
@@ -167,4 +167,4 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-});
+}); 

@@ -281,7 +281,7 @@
               <label for="messageTemplate">📝 Select Message:</label><br>
               <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
                 <option value="">Choose a template...</option>
-                <option value="HXe409d244b93e3dd70144789d2e797664">On its way 1st drop</option>
+                <option value="HXe409d244b93e3dd70144789d2e797664">Out for delivery</option>
                 <option value="HXb2d2ab9e1ac3fac1909cb6d2bce1b15f">Order Confirmation</option>
                 <option value="HXea334a5a136b808854eab2755556dd29">Collection Notification</option>
               </select>
@@ -342,87 +342,107 @@
           </div>
   
           <button onclick="sendMessage()" style="margin-top: 15px;">Send Notification</button>
+          <button onclick="saveForLater()" style="margin-top: 10px; background-color: #007bff; color: white;">💾 Save for Later</button>
+
         </div>
       </div>
     </div>
     <!-- END: FORM FIELDS -->
 
    <!-- ************************************************************************************************ -->
+   <!-- RIGHT SIDE: Saved for Later + Inbox + Chat + Reply -->
+<div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 40px; overflow-y: auto;">
 
-    <!-- RIGHT SIDE: Inbox, Chat Thread & Reply -->
-    <div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 30px; overflow-y: auto;">
-  
-      <!-- Inbox -->
-      <h3 style="margin-top: 0; margin-bottom: 10px;">📥 Inbox</h3>
-      <div id="inbox" style="
-        background-color: #ffffff;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 15px;
-        font-size: 13px;
-        max-height: 200px;
-        overflow-y: auto;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-      ">
-        <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447894802472')">
-          <strong>+44 7894 802472</strong> – Can you confirm delivery is on track?
-        </div>
-        <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447895123456')">
-          <strong>+44 7895 123456</strong> – Site contact is unavailable...
-        </div>
-        <div class="inbox-item" style="padding: 6px 0; cursor: pointer;" onclick="openChat('+447896654321')">
-          <strong>+44 7896 654321</strong> – Thanks for the update, ETA...
-        </div>
-      </div>
-  
-      <!-- Chat Thread -->
-      <h3 style="margin-bottom: 15px;">💬 Message Chat</h3>
-      <div id="chat-thread" style="
-        background-color: #ffffff;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 15px;
-        font-size: 13px;
-        max-height: 400px;
-        overflow-y: auto;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      "></div>
-  
-      <!-- Reply Box -->
-      <div style="
-        margin-top: 15px;
-        background-color: #ffffff;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 15px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      ">
-        <textarea id="replyMessage" placeholder="Type your reply here..." style="
-          width: 100%;
-          height: 80px;
-          font-size: 13px;
-          padding: 10px;
-          border-radius: 4px;
-          border: 1px solid #ccc;
-          resize: vertical;
-        "></textarea>
-  
-        <button onclick="addReply()" style="
-          margin-top: 10px;
-          padding: 8px 16px;
-          background-color: #007bff;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          font-size: 13px;
-          cursor: pointer;
-        ">
-          Send Reply
-        </button>
-      </div>
+  <!-- Saved for Later -->
+  <h3 style="margin-top: 20; margin-bottom: 10px;">💾 Saved for Later</h3>
+  <div id="saved-for-later" style="
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  padding: 1px;
+  font-size: 14px;
+  max-height: 700px;
+  overflow-y: auto;
+  overflow-x: hidden; /* ✅ Add this line to fix horizontal scrollbar */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin-bottom: 10px;
+">
+  <div style="color: gray; font-style: italic;">No saved entries yet.</div>
+</div>
+
+
+  <!-- Inbox ******************************     THIS SECTION HAS BEEN TEMP DEACTIVATED        **************************************
+  <h3 style="margin-top: 0; margin-bottom: 10px;">📥 Inbox</h3>
+  <div id="inbox" style="
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 15px;
+    font-size: 13px;
+    max-height: 140px;
+    overflow-y: auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    margin-bottom: 5px;
+  ">
+    <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447894802472')">
+      <strong>+44 7894 802472</strong> – Can you confirm delivery is on track?
+    </div>
+    <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447895123456')">
+      <strong>+44 7895 123456</strong> – Site contact is unavailable...
+    </div>
+    <div class="inbox-item" style="padding: 6px 0; cursor: pointer;" onclick="openChat('+447896654321')">
+      <strong>+44 7896 654321</strong> – Thanks for the update, ETA...
     </div>
   </div>
+
+  <!-- Chat Thread 
+  <h3 style="margin-bottom: 10px;">💬 Message Chat</h3>
+  <div id="chat-thread" style="
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 15px;
+    font-size: 13px;
+    max-height: 260px;
+    overflow-y: auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  "></div> 
+
+  <!-- Reply Box 
+  <div style="
+    margin-top: 15px;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 15px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  ">
+    <textarea id="replyMessage" placeholder="Type your reply here..." style="
+      width: 100%;
+      height: 80px;
+      font-size: 13px;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    "></textarea>
+
+    <button onclick="addReply()" style="
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+    ">
+      Send Reply
+    </button>
+  </div>
+</div> <!-- ✅ END RIGHT SIDE ******************************     THIS SECTION HAS BEEN TEMP DEACTIVATED        **************************************-->
+
+
   
   <!-- Scripts -->
   <script>
@@ -577,37 +597,26 @@ function selectMessage(el) {
             fullMessage += `📞 ${siteContact}\n\n`;
         }
 
-        fullMessage += `Kind Regards,\nSales Team @ ChambersTimber.com`;
+        fullMessage += `Kind Regards,\nSales Team @ ChambersTimber.com`; 
         document.getElementById('message').value = fullMessage;
     }
 
 
-function clearForm() {
-    let form = document.getElementById("notificationForm");
+    function clearForm() {
+  document.getElementById('phone').value = "07894 802 472";
+  document.getElementById('orderNumber').value = "";
+  document.getElementById('customerAddress').value = "";
+  document.getElementById('messageTemplate').selectedIndex = 0;
+  document.getElementById('message').value = "";
+  document.getElementById('siteContact').value = "";
+  document.getElementById('driver').selectedIndex = 0;
+  document.getElementById('vehicleReg').selectedIndex = 0;
+  document.getElementById('etaDropdown').selectedIndex = 0;
+  document.getElementById('deliveryDate').value = "";
 
-    if (form) {
-        form.reset(); // ✅ Fully reset the form
-        console.log("✅ Full form reset!"); // Debugging log
-    } else {
-        console.warn("⚠️ No form found! Make sure your form has the correct ID.");
-    }
-
-    // Manually clear fields in case reset() doesn't work
-    document.getElementById('phone').value = "07894 802 472";
-    document.getElementById('orderNumber').value = "";
-    document.getElementById('customerAddress').value = ""; // ✅ Now resets Address
-    document.getElementById('messageTemplate').selectedIndex = 0;
-    document.getElementById('message').value = "";
-    document.getElementById('siteContact').value = "";
-    document.getElementById('driver').selectedIndex = 0;
-    document.getElementById('vehicleReg').selectedIndex = 0;
-    document.getElementById('etaDropdown').selectedIndex = 0;
-    document.getElementById('deliveryDate').value = "";
-
-
-
-    console.log("✅ All fields cleared manually!");
+  console.log("✅ All fields cleared manually!");
 }
+
 
 // Function to load message history from localStorage 
 function displayHistory() {
@@ -630,7 +639,11 @@ Driver: ${item.driverName} - ${item.driverPhone}
 
 
 // ✅ Load history when the page loads
-window.onload = loadHistory;
+window.onload = () => {
+  loadHistory();
+  displaySavedLater();
+};
+
 
 
 // Function to save message history to localStorage
@@ -722,7 +735,7 @@ function sendMessage() {
         if (!response.ok) {
             throw new Error(`Server responded with status: ${response.status}`);
         }
-        return response.json();
+        return response.json(); 
     })
     .then(data => {
         loading.style.display = "none";
@@ -746,6 +759,122 @@ function sendMessage() {
         responseText.style.color = "red";
         responseText.innerHTML = `Error: ${error.message}`;
     });
+}
+function saveForLater() {
+  const phone = document.getElementById('phone').value.trim();
+  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+  const customerAddress = document.getElementById('customerAddress').value.trim();
+  const etaValue = document.getElementById("etaDropdown").value;
+  const siteContact = document.getElementById('siteContact').value.trim();
+  const templateDropdown = document.getElementById('messageTemplate');
+  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
+  const templateSid = templateDropdown.value;
+  const driverValue = document.getElementById('driver').value;
+  const [driverName, driverPhone] = driverValue.split(' - ');
+  const vehicleReg = document.getElementById('vehicleReg').value;
+  const deliveryDate = document.getElementById('deliveryDate').value;
+
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+
+  saved.unshift({
+    phone, orderNumber, customerAddress, etaValue, siteContact, templateLabel, templateSid,
+    driverName, driverPhone, vehicleReg, deliveryDate
+  });
+
+  localStorage.setItem('savedLater', JSON.stringify(saved));
+  displaySavedLater();
+
+ // ✅ Clear the form after saving
+ clearForm();
+}
+
+function displaySavedLater() {
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  const container = document.getElementById('saved-for-later');
+  container.innerHTML = '';
+
+  if (saved.length === 0) {
+    container.innerHTML = '<div style="color: gray; font-style: italic;">No saved entries yet.</div>';
+    return;
+  }
+
+  saved.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.gap = '2px';
+    row.style.padding = '0px 5px';
+    row.style.margin = '0';
+    row.style.lineHeight = '1';
+    row.style.fontSize = '15px';
+    row.style.borderBottom = '1px solid #eee';
+
+    const order = item.orderNumber || 'N/A';
+    const template = item.templateLabel || 'N/A';
+    const address = item.customerAddress || 'No Address';
+    const driver = item.driverName || 'N/A';
+    
+
+    const info = document.createElement('div');
+    info.innerHTML = `<strong>Order:  ${order}</strong> | ${template} | ${address} | ${driver} `;
+    info.style.flex = '1';
+    info.style.overflow = 'hidden';
+    info.style.textOverflow = 'ellipsis';
+    info.style.whiteSpace = 'nowrap';
+    info.style.cursor = 'pointer';
+    info.onclick = () => loadSavedEntry(index);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '🗑️';
+    deleteBtn.style.background = 'transparent';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.fontSize = '12px';
+    deleteBtn.style.flex = '0';   // no shrinking
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteSavedEntry(index);
+    };
+
+    row.appendChild(info);
+    row.appendChild(deleteBtn);
+    container.appendChild(row);
+  });
+}
+
+
+
+function deleteSavedEntry(index) {
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  saved.splice(index, 1); // remove the entry at index
+  localStorage.setItem('savedLater', JSON.stringify(saved));
+  displaySavedLater(); // refresh view
+}
+
+
+function loadSavedEntry(index) {
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  const item = saved[index];
+  if (!item) return;
+
+  // Fill the form fields
+  document.getElementById('phone').value = item.phone;
+  document.getElementById('orderNumber').value = item.orderNumber;
+  document.getElementById('customerAddress').value = item.customerAddress;
+  document.getElementById('etaDropdown').value = item.etaValue;
+  document.getElementById('siteContact').value = item.siteContact;
+  document.getElementById('messageTemplate').value = item.templateSid;
+  document.getElementById('driver').value = `${item.driverName} - ${item.driverPhone}`;
+  document.getElementById('vehicleReg').value = item.vehicleReg;
+  document.getElementById('deliveryDate').value = item.deliveryDate;
+
+  updateMessage();
+
+  // 🗑️ Remove the loaded entry from savedLater
+  saved.splice(index, 1);
+  localStorage.setItem('savedLater', JSON.stringify(saved));
+  displaySavedLater();
 }
 
 
