@@ -1,14 +1,13 @@
+// 📦 FINAL server.js (fully cleaned and working)
+
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const twilio = require('twilio');
+const path = require('path');
 
 const app = express();
-app.use((req, res, next) => {
-  console.log(`📥 ${req.method} request to ${req.url}`);
-  next();
-});
 
 // ✅ Middlewares
 app.use(cors());
@@ -28,6 +27,9 @@ const whatsappNumber = 'whatsapp:+447706802841';
 const inboxMessages = [];
 const messageStatusMap = {}; // 💡 Track SID → status
 
+// ✅ Template SID for Order Confirmation
+const orderConfirmationTemplateSid = 'HXb930591ce15ddf1213379a48a92349e0';
+
 // ✅ Format UK phone numbers
 function formatPhoneNumber(phone) {
   phone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
@@ -37,10 +39,7 @@ function formatPhoneNumber(phone) {
   return phone;
 }
 
-// ✅ Template SID for Order Confirmation
-const orderConfirmationTemplateSid = 'HXc41bf555de069cb50cdad53527f31714';
-
-// ✅ Format delivery date as "Thursday 15th March 25"
+// ✅ Format delivery date as "Thursday 9th May 25"
 function formatUKDate(dateStr) {
   const date = new Date(dateStr);
   if (isNaN(date)) return dateStr;
@@ -50,7 +49,6 @@ function formatUKDate(dateStr) {
   const monthName = date.toLocaleDateString('en', { month: 'long' });
   const year = date.getFullYear().toString().slice(-2);
 
-  // Determine suffix (st, nd, rd, th)
   const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? 'st' :
                  (dayNum === 2 || dayNum === 22) ? 'nd' :
                  (dayNum === 3 || dayNum === 23) ? 'rd' : 'th';
@@ -58,9 +56,7 @@ function formatUKDate(dateStr) {
   return `${dayName} ${dayNum}${suffix} ${monthName} ${year}`;
 }
 
-
-
-// ✅ Send WhatsApp message
+// ✅ Send WhatsApp Message
 app.post('/send-message', async (req, res) => {
   try {
     let { phone, orderNumber, eta, deliveryDate, customerAddress, siteContact, templateSid } = req.body;
@@ -71,15 +67,19 @@ app.post('/send-message', async (req, res) => {
     }
 
     const mapImageUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddress)}`;
+
     deliveryDate = typeof deliveryDate === 'string' ? deliveryDate : '';
     eta = typeof eta === 'string' ? eta : '';
 
     let contentVariables;
 
     if (templateSid === orderConfirmationTemplateSid) {
+      if (!deliveryDate.trim()) {
+        return res.status(400).json({ success: false, error: 'Delivery Date is required for Order Confirmations.' });
+      }
       contentVariables = JSON.stringify({
         '1': orderNumber || 'N/A',
-        '2': formatUKDate(deliveryDate.trim()) || 'TBC',
+        '2': formatUKDate(deliveryDate.trim()),
         '3': customerAddress || 'N/A',
         '4': siteContact || 'N/A',
         '5': mapImageUrl
@@ -110,7 +110,7 @@ app.post('/send-message', async (req, res) => {
     });
 
     console.log('✅ WhatsApp template message sent. SID:', message.sid);
-    res.json({ success: true, sid: message.sid }); // 💡 Return SID to frontend
+    res.json({ success: true, sid: message.sid });
 
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
@@ -143,7 +143,7 @@ app.post('/status-callback', (req, res) => {
   const messageSid = req.body.MessageSid || 'unknown';
   const messageStatus = req.body.MessageStatus || 'unknown';
 
-  console.log(`📬 Status update received: SID ${messageSid} → ${messageStatus}`); 
+  console.log(`📬 Status update received: SID ${messageSid} → ${messageStatus}`);
   messageStatusMap[messageSid] = messageStatus;
 
   res.sendStatus(200);
@@ -161,16 +161,14 @@ app.get('/inbox', (req, res) => {
   res.json(inboxMessages);
 });
 
-const path = require('path');
-
-// Serve index.html statically 
+// ✅ Static files
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
@@ -180,4 +178,4 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-});  
+});
