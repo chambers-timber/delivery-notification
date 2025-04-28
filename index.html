@@ -282,8 +282,7 @@
               <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
                 <option value="">Choose a template...</option>
                 <option value="HXe409d244b93e3dd70144789d2e797664">Out for delivery</option>
-                <option value=// ✅ Template SID for Order Confirmation
-const orderConfirmationTemplateSid ="HXb930591ce15ddf1213379a48a92349e0">Order Confirmation</option>
+                <option value="HXb930591ce15ddf1213379a48a92349e0">Order Confirmation</option>
                 <option value="HXea334a5a136b808854eab2755556dd29">Collection Notification</option>
               </select>
             </div>
@@ -665,43 +664,56 @@ window.onload = () => {
 
 
 // Function to save message history to localStorage
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent', messageSid = '') {
-    let savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-
+// ✅ Save message history to the server
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent') {
     const dateTime = new Date();
     const formattedDate = dateTime.toLocaleDateString('en');
     const formattedTime = dateTime.toLocaleTimeString('en');
     const fullDateTime = `${formattedDate}, ${formattedTime}`;
 
-    const historyItem = {
-        orderNumber,
-        templateLabel,
-        driverName,
-        driverPhone,
-        dateTime: fullDateTime,
-        status,
-        messageSid // ✅ this is critical for polling
-    };
-
-    savedHistory.unshift(historyItem);
-    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
+    fetch('/save-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            orderNumber,
+            templateLabel,
+            driverName,
+            driverPhone,
+            dateTime: fullDateTime,
+            status
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            loadHistory(); // Refresh after saving
+        } else {
+            console.error('❌ Failed to save history:', data.error);
+        }
+    })
+    .catch(err => console.error('❌ Error saving history:', err));
 }
 
-
+// ✅ Load message history from the server
 function loadHistory() {
-    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-    const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '';
+    fetch('/history')
+    .then(res => res.json())
+    .then(savedHistory => {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
 
-    savedHistory.forEach(item => {
-        const entry = document.createElement('li');
-        entry.innerText = `Order: ${item.orderNumber}
+        savedHistory.forEach(item => {
+            const entry = document.createElement('li');
+            entry.innerText = `Order: ${item.orderNumber}
 Template: ${item.templateLabel}
 Driver: ${item.driverName} - ${item.driverPhone}
 📅 ${item.dateTime}, ${item.status}`;
-        historyList.appendChild(entry);
-    });
+            historyList.appendChild(entry);
+        });
+    })
+    .catch(err => console.error('❌ Error loading history:', err));
 }
+
 
 
 
@@ -713,12 +725,12 @@ function sendMessage() {
     let etaValue = document.getElementById("etaDropdown").value;
     let siteContact = document.getElementById('siteContact').value.trim();
     let templateDropdown = document.getElementById('messageTemplate');
+    let templateSid = templateDropdown.value;
     let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
     const driverValue = document.getElementById('driver').value;
     const [driverName, driverPhone] = driverValue.split(' - ');
 
     let vehicleReg = document.getElementById('vehicleReg').value;
-
     const responseText = document.getElementById('response');
     const loading = document.getElementById('loading');
     const deliveryDate = document.getElementById('deliveryDate').value;
@@ -729,10 +741,17 @@ function sendMessage() {
         return;
     }
 
+    // ✅ Only check Delivery Date if Order Confirmation
+    if (templateSid === "HXb930591ce15ddf1213379a48a92349e0" && !deliveryDate) {
+        responseText.style.color = "red";
+        responseText.innerHTML = "Please select a Delivery Date for Order Confirmations.";
+        return;
+    }
+
     loading.style.display = "block";
     responseText.innerHTML = "";
 
-    fetch('https://delivery-notification.onrender.com/send-message', {
+    fetch('/send-message', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -746,7 +765,7 @@ function sendMessage() {
             siteContact,
             driver,
             vehicleReg,
-            templateSid: templateDropdown.value
+            templateSid
         })
     })
     .then(response => {
@@ -778,6 +797,7 @@ function sendMessage() {
         responseText.innerHTML = `Error: ${error.message}`;
     });
 }
+
 
 function saveForLater() {
   const phone = document.getElementById('phone').value.trim();
@@ -915,4 +935,4 @@ function clearSavedLater() {
     </script>
 
 </body>
-</html>
+</html> 

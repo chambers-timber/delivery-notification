@@ -59,7 +59,10 @@ function formatUKDate(dateStr) {
 // ✅ Send WhatsApp Message
 app.post('/send-message', async (req, res) => {
   try {
+    console.log('📩 Incoming send-message POST body:', req.body);
+
     let { phone, orderNumber, eta, deliveryDate, customerAddress, siteContact, templateSid } = req.body;
+
     phone = formatPhoneNumber(phone);
 
     if (!phone.startsWith('+44') || phone.length < 10) {
@@ -178,4 +181,4 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-});
+}); 
