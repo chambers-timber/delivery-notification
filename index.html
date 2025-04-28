@@ -664,56 +664,43 @@ window.onload = () => {
 
 
 // Function to save message history to localStorage
-// ✅ Save message history to the server
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent') {
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent', messageSid = '') {
+    let savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+
     const dateTime = new Date();
     const formattedDate = dateTime.toLocaleDateString('en');
     const formattedTime = dateTime.toLocaleTimeString('en');
     const fullDateTime = `${formattedDate}, ${formattedTime}`;
 
-    fetch('/save-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            orderNumber,
-            templateLabel,
-            driverName,
-            driverPhone,
-            dateTime: fullDateTime,
-            status
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            loadHistory(); // Refresh after saving
-        } else {
-            console.error('❌ Failed to save history:', data.error);
-        }
-    })
-    .catch(err => console.error('❌ Error saving history:', err));
+    const historyItem = {
+        orderNumber,
+        templateLabel,
+        driverName,
+        driverPhone,
+        dateTime: fullDateTime,
+        status,
+        messageSid // ✅ this is critical for polling
+    };
+
+    savedHistory.unshift(historyItem);
+    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
 }
 
-// ✅ Load message history from the server
-function loadHistory() {
-    fetch('/history')
-    .then(res => res.json())
-    .then(savedHistory => {
-        const historyList = document.getElementById('history-list');
-        historyList.innerHTML = '';
 
-        savedHistory.forEach(item => {
-            const entry = document.createElement('li');
-            entry.innerText = `Order: ${item.orderNumber}
+function loadHistory() {
+    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '';
+
+    savedHistory.forEach(item => {
+        const entry = document.createElement('li');
+        entry.innerText = `Order: ${item.orderNumber}
 Template: ${item.templateLabel}
 Driver: ${item.driverName} - ${item.driverPhone}
 📅 ${item.dateTime}, ${item.status}`;
-            historyList.appendChild(entry);
-        });
-    })
-    .catch(err => console.error('❌ Error loading history:', err));
+        historyList.appendChild(entry);
+    });
 }
-
 
 
 
@@ -751,7 +738,7 @@ function sendMessage() {
     loading.style.display = "block";
     responseText.innerHTML = "";
 
-    fetch('/send-message', {
+    fetch('https://delivery-notification.onrender.com/send-message', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
