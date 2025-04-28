@@ -38,14 +38,27 @@ function formatPhoneNumber(phone) {
 }
 
 // ✅ Template SID for Order Confirmation
-const orderConfirmationTemplateSid = 'HXb2d2ab9e1ac3fac1909cb6d2bce1b15f';
+const orderConfirmationTemplateSid = 'HXc41bf555de069cb50cdad53527f31714';
 
-// ✅ Format delivery date as DD/MM/YYYY 
+// ✅ Format delivery date as "Thursday 15th March 25"
 function formatUKDate(dateStr) {
   const date = new Date(dateStr);
   if (isNaN(date)) return dateStr;
-  return date.toLocaleDateString('en');
+
+  const dayName = date.toLocaleDateString('en', { weekday: 'long' });
+  const dayNum = date.getDate();
+  const monthName = date.toLocaleDateString('en', { month: 'long' });
+  const year = date.getFullYear().toString().slice(-2);
+
+  // Determine suffix (st, nd, rd, th)
+  const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? 'st' :
+                 (dayNum === 2 || dayNum === 22) ? 'nd' :
+                 (dayNum === 3 || dayNum === 23) ? 'rd' : 'th';
+
+  return `${dayName} ${dayNum}${suffix} ${monthName} ${year}`;
 }
+
+
 
 // ✅ Send WhatsApp message
 app.post('/send-message', async (req, res) => {
@@ -167,4 +180,4 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-}); 
+});  

@@ -282,7 +282,8 @@
               <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
                 <option value="">Choose a template...</option>
                 <option value="HXe409d244b93e3dd70144789d2e797664">Out for delivery</option>
-                <option value="HXb2d2ab9e1ac3fac1909cb6d2bce1b15f">Order Confirmation</option>
+                <option value=// ✅ Template SID for Order Confirmation
+const orderConfirmationTemplateSid ="HXb930591ce15ddf1213379a48a92349e0">Order Confirmation</option>
                 <option value="HXea334a5a136b808854eab2755556dd29">Collection Notification</option>
               </select>
             </div>
@@ -305,6 +306,7 @@
                   <option value="1:00pm - 2:00pm">1pm - 2pm</option>
                   <option value="2:00pm - 3:00pm">2pm - 3pm</option>
                   <option value="3:00pm - 4:00pm">3pm - 4pm</option>
+                  <option value="8:00am - 10:00am">8am - 10am</option>
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
                   <option value="Multidrop">Multidrop</option>
@@ -369,6 +371,21 @@
 ">
   <div style="color: gray; font-style: italic;">No saved entries yet.</div>
 </div>
+
+<div style="margin-top: 10px; text-align: right;">
+  <button onclick="clearSavedLater()" style="
+    background-color: #dc3545; /* red */
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 5px;
+    cursor: pointer;
+  ">
+    🗑️ Clear All
+  </button>
+</div>
+
 
 
   <!-- Inbox ******************************     THIS SECTION HAS BEEN TEMP DEACTIVATED        **************************************
@@ -511,95 +528,96 @@ function selectMessage(el) {
 }
 
 
-    function updateMessage() {
-        const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-        const customerAddress = document.getElementById('customerAddress').value.trim();
-        const siteContact = document.getElementById('siteContact').value.trim();
-        const deliveryDateInput = document.getElementById('deliveryDate').value;
-        const selectedTemplate = document.getElementById('messageTemplate').value;
+function formatUKDate(dateStr) {
+  const date = new Date(dateStr);
+  if (isNaN(date)) return dateStr;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear().toString().slice(-2);
+  return `${day}/${month}/${year}`;
+}
 
-        // ✅ Special case: Collection Template — minimal format, only Order No required
-        if (selectedTemplate === "Ready_for_collection") {
-            let fullMessage = orderNumber ? `ORDER COLLECTION\nOrder No. ${orderNumber}\n\n` : "ORDER COLLECTION\n\n";
-            fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
-            document.getElementById('message').value = fullMessage;
-            return; // Skip rest of function for this case
-        }
+function updateMessage() {
+  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+  const customerAddress = document.getElementById('customerAddress').value.trim();
+  const siteContact = document.getElementById('siteContact').value.trim();
+  const deliveryDateInput = document.getElementById('deliveryDate').value;
+  const selectedTemplate = document.getElementById('messageTemplate').value;
 
-        let fullMessage = orderNumber ? `PO: ${orderNumber}\n\n` : "";
+  let fullMessage = "";
 
-        switch (selectedTemplate) {
-            case "On_its_way_1st":
-                fullMessage += `HXe409d244b93e3dd70144789d2e797664.\n\n`;
-                break;
-            case "Out_for_delivery_2nd":
-                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 1 stop ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-                break;
-            case "Out_for_delivery_3rd":
-                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 2 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-                break;
-            case "Out_for_delivery_4th":
-                fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 3 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-                break;
-            case "First_drop_confirmation":
-                fullMessage += `We are pleased to confirm that your order has been booked in with our transport team for a First Drop, please see below for your delivery details.\n\n`;
-                break;
-            case "On_its_way_12_2":
-                fullMessage += `We are pleased to confirm that your order is now on its way. Approx ETA 12-2pm. Our driver will call you on arrival.\n\n`;
-                break;
-            case "Delivered":
-                fullMessage += `We are pleased to confirm that your order has now been successfully delivered.\n\n`;
-                break;
-            case "Order_Confirmation_Direct":
-                fullMessage += `Your order is now booked in with our transport team, see below for delivery details, you will receive a delivery notification when your order is on it's way.\n\n`;
-                break;
-            case "Order_Confirmation":
-                fullMessage += `Thank you for shopping with us.\n\nWe are pleased to confirm that your order is now booked in with our transport team please see below for details, you will receive a delivery notification when your order is on it's way.\n\n`;
-                break;
-            case "Order_Status_O4D":
-                fullMessage += `Order Status: Out for delivery\n\n`;
-                break;
-            case "Order_Status_Picking":
-                fullMessage += `Order Status: Loading\n\n`;
-                break;
-            case "HIAB_Delivery":
-                fullMessage += `DELIVERY CONFIRMATION\n\nOrder Status: Out for delivery\nVehicle: Lorry- 18 Ton -Rigid \nDriver: Ricky\n\n`;
-                break;
-            default:
-                fullMessage += `[Select a message template]\n\n`;
-                break;
-        }
+  if (selectedTemplate === "Ready_for_collection") {
+    fullMessage = orderNumber ? `ORDER COLLECTION\nOrder No. ${orderNumber}\n\n` : "ORDER COLLECTION\n\n";
+    fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
+    document.getElementById('message').value = fullMessage;
+    return;
+  }
 
-        // ✅ Format delivery date to "Thursday 15th March 25"
-        if (deliveryDateInput) {
-            const dateObj = new Date(deliveryDateInput);
-            const day = dateObj.toLocaleDateString("en", { weekday: "long" });
-            const dayNum = dateObj.getDate();
-            const month = dateObj.toLocaleDateString("en", { month: "long" });
-            const year = dateObj.getFullYear().toString().slice(-2);
-            const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? "st" :
-                        (dayNum === 2 || dayNum === 22) ? "nd" :
-                        (dayNum === 3 || dayNum === 23) ? "rd" : "th";
-            const formattedDate = `${day} ${dayNum}${suffix} ${month} ${year}`;
-            fullMessage += `📅 Delivery Date: \n${formattedDate}\n\n`;
-        }
+  if (orderNumber) {
+    fullMessage += `PO: ${orderNumber}\n\n`;
+  }
 
-        const etaValue = document.getElementById("etaDropdown").value;
-        if (etaValue) {
-            fullMessage += `⏱ ETA: \n${etaValue}\n\n`;
-        }
+  switch (selectedTemplate) {
+    case "On_its_way_1st":
+      fullMessage += `HXe409d244b93e3dd70144789d2e797664.\n\n`;
+      break;
+    case "Out_for_delivery_2nd":
+      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 1 stop ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+      break;
+    case "Out_for_delivery_3rd":
+      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 2 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+      break;
+    case "Out_for_delivery_4th":
+      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 3 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
+      break;
+    case "First_drop_confirmation":
+      fullMessage += `We are pleased to confirm that your order has been booked in with our transport team for a First Drop, please see below for your delivery details.\n\n`;
+      break;
+    case "On_its_way_12_2":
+      fullMessage += `We are pleased to confirm that your order is now on its way. Approx ETA 12-2pm. Our driver will call you on arrival.\n\n`;
+      break;
+    case "Delivered":
+      fullMessage += `We are pleased to confirm that your order has now been successfully delivered.\n\n`;
+      break;
+    case "Order_Confirmation_Direct":
+      fullMessage += `Your order is now booked in with our transport team, see below for delivery details, you will receive a delivery notification when your order is on its way.\n\n`;
+      break;
+    case "Order_Confirmation":
+      fullMessage += `Thank you for shopping with us.\n\nWe are pleased to confirm that your order is now booked in with our transport team, please see below for details. You will receive a delivery notification when your order is on its way.\n\n`;
+      break;
+    case "Order_Status_O4D":
+      fullMessage += `Order Status: Out for delivery\n\n`;
+      break;
+    case "Order_Status_Picking":
+      fullMessage += `Order Status: Loading\n\n`;
+      break;
+    case "HIAB_Delivery":
+      fullMessage += `DELIVERY CONFIRMATION\n\nOrder Status: Out for delivery\nVehicle: Lorry - 18 Ton - Rigid\nDriver: Ricky\n\n`;
+      break;
+    default:
+      fullMessage += `[Select a message template]\n\n`;
+      break;
+  }
 
-        if (customerAddress) {
-            fullMessage += `📍 Delivery Address: \n${customerAddress}\n\n`;
-        }
+  // ✅ Insert correct formatted delivery date
+  if (deliveryDateInput) {
+    const formattedDate = formatUKDate(deliveryDateInput);
+    fullMessage += `📅 Delivery Date: ${formattedDate}\n\n`;
+  }
 
-        if (siteContact) {
-            fullMessage += `📞 ${siteContact}\n\n`;
-        }
+  if (customerAddress) {
+    fullMessage += `📍 ${customerAddress}\n`;
+  }
 
-        fullMessage += `Kind Regards,\nSales Team @ ChambersTimber.com`; 
-        document.getElementById('message').value = fullMessage;
-    }
+  if (siteContact) {
+    fullMessage += `📞 ${siteContact}\n`;
+  }
+
+  fullMessage += `\nKind Regards\nSales Team @ ChambersTimber.com`;
+
+  document.getElementById('message').value = fullMessage;
+}
+
 
 
     function clearForm() {
@@ -760,6 +778,7 @@ function sendMessage() {
         responseText.innerHTML = `Error: ${error.message}`;
     });
 }
+
 function saveForLater() {
   const phone = document.getElementById('phone').value.trim();
   const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
@@ -778,14 +797,14 @@ function saveForLater() {
 
   saved.unshift({
     phone, orderNumber, customerAddress, etaValue, siteContact, templateLabel, templateSid,
-    driverName, driverPhone, vehicleReg, deliveryDate
+    driverName, driverPhone, vehicleReg, deliveryDate,
+    used: false   // ✅ Add this line
   });
 
   localStorage.setItem('savedLater', JSON.stringify(saved));
   displaySavedLater();
 
- // ✅ Clear the form after saving
- clearForm();
+  clearForm();
 }
 
 function displaySavedLater() {
@@ -815,14 +834,19 @@ function displaySavedLater() {
     const address = item.customerAddress || 'No Address';
     const driver = item.driverName || 'N/A';
     
-
     const info = document.createElement('div');
-    info.innerHTML = `<strong>Order:  ${order}</strong> | ${template} | ${address} | ${driver} `;
+    info.innerHTML = `<strong>Order:  ${order}</strong> | ${template} | ${address} | ${driver}`;
     info.style.flex = '1';
     info.style.overflow = 'hidden';
     info.style.textOverflow = 'ellipsis';
     info.style.whiteSpace = 'nowrap';
     info.style.cursor = 'pointer';
+
+    // ✅ THIS is the missing part to make it RED if used:
+    if (item.used) {
+      info.style.color = 'red';
+    }
+
     info.onclick = () => loadSavedEntry(index);
 
     const deleteBtn = document.createElement('button');
@@ -845,6 +869,7 @@ function displaySavedLater() {
 
 
 
+
 function deleteSavedEntry(index) {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
   saved.splice(index, 1); // remove the entry at index
@@ -858,7 +883,6 @@ function loadSavedEntry(index) {
   const item = saved[index];
   if (!item) return;
 
-  // Fill the form fields
   document.getElementById('phone').value = item.phone;
   document.getElementById('orderNumber').value = item.orderNumber;
   document.getElementById('customerAddress').value = item.customerAddress;
@@ -871,11 +895,19 @@ function loadSavedEntry(index) {
 
   updateMessage();
 
-  // 🗑️ Remove the loaded entry from savedLater
-  saved.splice(index, 1);
+  // ✅ Mark the item as used
+  saved[index].used = true;
   localStorage.setItem('savedLater', JSON.stringify(saved));
-  displaySavedLater();
+  displaySavedLater(); // ✅ redraw with correct color
 }
+
+function clearSavedLater() {
+  if (confirm("Are you sure you want to clear all saved entries?")) {
+    localStorage.removeItem('savedLater');
+    displaySavedLater();
+  }
+}
+
 
 
 //working 23/04/25 @ 8:54
