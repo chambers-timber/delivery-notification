@@ -834,14 +834,6 @@ function displaySavedLater() {
     return;
   }
 
-  // Sort saved entries by delivery date (earliest first)
-saved.sort((a, b) => {
-  const dateA = new Date(a.deliveryDate || 0);
-  const dateB = new Date(b.deliveryDate || 0);
-  return dateA - dateB;
-});
-
-
   saved.forEach((item, index) => {
     const row = document.createElement('div');
     row.style.display = 'flex';
@@ -883,7 +875,7 @@ info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | 
       info.style.color = 'red';
     }
 
-    info.onclick = () => loadSavedEntry(item);
+    info.onclick = () => loadSavedEntry(index);
 
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑️';
@@ -912,34 +904,29 @@ function deleteSavedEntry(index) {
   localStorage.setItem('savedLater', JSON.stringify(saved));
   displaySavedLater(); // refresh view
 }
- 
 
-function loadSavedEntry(item) {
+
+function loadSavedEntry(index) {
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  const item = saved[index];
   if (!item) return;
 
-  document.getElementById('phone').value = item.phone || '';
-  document.getElementById('orderNumber').value = item.orderNumber || '';
-  document.getElementById('customerAddress').value = item.customerAddress || '';
-  document.getElementById('etaDropdown').value = item.etaValue || '';
-  document.getElementById('siteContact').value = item.siteContact || '';
-  document.getElementById('messageTemplate').value = item.templateSid || '';
-  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
-  document.getElementById('vehicleReg').value = item.vehicleReg || '';
-  document.getElementById('deliveryDate').value = item.deliveryDate || '';
+  document.getElementById('phone').value = item.phone;
+  document.getElementById('orderNumber').value = item.orderNumber;
+  document.getElementById('customerAddress').value = item.customerAddress;
+  document.getElementById('etaDropdown').value = item.etaValue;
+  document.getElementById('siteContact').value = item.siteContact;
+  document.getElementById('messageTemplate').value = item.templateSid;
+  document.getElementById('driver').value = `${item.driverName} - ${item.driverPhone}`;
+  document.getElementById('vehicleReg').value = item.vehicleReg;
+  document.getElementById('deliveryDate').value = item.deliveryDate;
 
   updateMessage();
 
-   // ✅ Mark the item as used properly
-   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-  const foundIndex = saved.findIndex(savedItem => 
-    savedItem.orderNumber === item.orderNumber && savedItem.phone === item.phone
-  );
-
-  if (foundIndex !== -1) {
-    saved[foundIndex].used = true;
-    localStorage.setItem('savedLater', JSON.stringify(saved));
-    displaySavedLater(); // ✅ redraw with updated red color
-  }
+  // ✅ Mark the item as used
+  saved[index].used = true;
+  localStorage.setItem('savedLater', JSON.stringify(saved));
+  displaySavedLater(); // ✅ redraw with correct color
 }
 
 function clearSavedLater() {
@@ -948,8 +935,6 @@ function clearSavedLater() {
     displaySavedLater();
   }
 }
-
-
 
 
 
