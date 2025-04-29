@@ -361,7 +361,7 @@
   border: 1px solid #ccc;
   border-radius: 2px;
   padding: 1px;
-  font-size: 14px;
+  font-size: 12px;
   max-height: 700px;
   overflow-y: auto;
   overflow-x: hidden; /* ✅ Add this line to fix horizontal scrollbar */
@@ -377,7 +377,7 @@
     color: white;
     border: none;
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 1px;
     border-radius: 5px;
     cursor: pointer;
   ">
@@ -638,7 +638,7 @@ function updateMessage() {
 // Function to load message history from localStorage 
 function displayHistory() {
     const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-    const historyList = document.getElementById('history-list'); // or your element ID
+    const historyList = document.getElementById('history-list'); 
     historyList.innerHTML = '';
 
     savedHistory.forEach(item => {
@@ -664,27 +664,38 @@ window.onload = () => {
 
 
 // Function to save message history to localStorage
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, status = 'Sent', messageSid = '') {
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', status = 'Saved', messageSid = '') {
     let savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
 
-    const dateTime = new Date();
-    const formattedDate = dateTime.toLocaleDateString('en');
-    const formattedTime = dateTime.toLocaleTimeString('en');
-    const fullDateTime = `${formattedDate}, ${formattedTime}`;
+    // Format: "Thursday 23rd April"
+    let formattedDeliveryDate = '';
+    if (deliveryDate) {
+        const dateObj = new Date(deliveryDate);
+        const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+        const dayNum = dateObj.getDate();
+        const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+        formattedDeliveryDate = `${day} ${dayNum} ${month}`;
+    } else {
+        formattedDeliveryDate = 'TBC';
+    }
 
     const historyItem = {
         orderNumber,
         templateLabel,
         driverName,
         driverPhone,
-        dateTime: fullDateTime,
+        customerAddress,
+        siteContact,
+        deliveryDate: formattedDeliveryDate,
         status,
-        messageSid // ✅ this is critical for polling
+        messageSid
     };
 
     savedHistory.unshift(historyItem);
     localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
 }
+
+
 
 
 function loadHistory() {
@@ -694,13 +705,11 @@ function loadHistory() {
 
     savedHistory.forEach(item => {
         const entry = document.createElement('li');
-        entry.innerText = `Order: ${item.orderNumber}
-Template: ${item.templateLabel}
-Driver: ${item.driverName} - ${item.driverPhone}
-📅 ${item.dateTime}, ${item.status}`;
+        entry.innerText = `Order: ${item.orderNumber} | ${item.templateLabel} | ${item.customerAddress || 'N/A'} | ${item.siteContact || 'N/A'} | ${item.deliveryDate}`;
         historyList.appendChild(entry);
     });
 }
+
 
 
 
@@ -769,7 +778,8 @@ function sendMessage() {
             responseText.innerHTML = "Message sent successfully! ✅";
 
             const sid = data.sid || '';
-            saveHistory(orderNumber, templateLabel, driverName, driverPhone, 'Sent', sid);
+            saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', messageSid);
+
 
             loadHistory();
             clearForm();
@@ -830,19 +840,30 @@ function displaySavedLater() {
     row.style.alignItems = 'center';
     row.style.justifyContent = 'space-between';
     row.style.gap = '2px';
-    row.style.padding = '0px 5px';
+    row.style.padding = '2px 10px';
     row.style.margin = '0';
     row.style.lineHeight = '1';
-    row.style.fontSize = '15px';
+    row.style.fontSize = '13px';
     row.style.borderBottom = '1px solid #eee';
 
     const order = item.orderNumber || 'N/A';
-    const template = item.templateLabel || 'N/A';
-    const address = item.customerAddress || 'No Address';
-    const driver = item.driverName || 'N/A';
-    
-    const info = document.createElement('div');
-    info.innerHTML = `<strong>Order:  ${order}</strong> | ${template} | ${address} | ${driver}`;
+const template = item.templateLabel || 'N/A';
+const address = item.customerAddress || 'No Address';
+const driver = item.driverName || 'N/A';
+
+// Format delivery date as "Thursday 23rd April"
+let formattedDate = 'TBC';
+if (item.deliveryDate) {
+  const dateObj = new Date(item.deliveryDate);
+  const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+  const dayNum = dateObj.getDate();
+  const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+  formattedDate = `${day} ${dayNum} ${month}`;
+}
+
+const info = document.createElement('div');
+info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | ${driver} | ${formattedDate}`;
+
     info.style.flex = '1';
     info.style.overflow = 'hidden';
     info.style.textOverflow = 'ellipsis';
