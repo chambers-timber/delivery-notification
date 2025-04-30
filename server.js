@@ -30,6 +30,42 @@ const messageStatusMap = {}; // 💡 Track SID → status
 // ✅ Template SID for Order Confirmation
 const orderConfirmationTemplateSid = 'HXb930591ce15ddf1213379a48a92349e0';
 
+// THIS SECTION IS NEW FOR MIGRATING TO SERVER STORAGE
+// New memory stores
+const savedDrafts = [];
+const orderHistory = [];
+
+// API: Save sent message to history 
+app.post('/save-history', (req, res) => {
+  const historyItem = req.body;
+  orderHistory.unshift(historyItem);
+  res.json({ success: true });
+});
+
+// API: Get all history
+app.get('/history', (req, res) => {
+  res.json(orderHistory);
+});
+
+// API: Save draft
+app.post('/save-draft', (req, res) => {
+  const draft = req.body;
+  savedDrafts.unshift(draft);
+  res.json({ success: true });
+});
+
+// API: Get all drafts
+app.get('/drafts', (req, res) => {
+  res.json(savedDrafts);
+});
+
+// API: Clear all drafts
+app.delete('/drafts', (req, res) => {
+  savedDrafts.length = 0;
+  res.json({ success: true });
+});
+// THIS SECTION IS NEW FOR MIGRATING TO SERVER STORAGE
+
 // ✅ Format UK phone numbers
 function formatPhoneNumber(phone) {
   phone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');

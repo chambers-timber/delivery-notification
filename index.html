@@ -619,7 +619,7 @@ function updateMessage() {
 
 
 
-    function clearForm() {
+function clearForm() {
   document.getElementById('phone').value = "07894 802 472";
   document.getElementById('orderNumber').value = "";
   document.getElementById('customerAddress').value = "";
@@ -629,10 +629,14 @@ function updateMessage() {
   document.getElementById('driver').selectedIndex = 0;
   document.getElementById('vehicleReg').selectedIndex = 0;
   document.getElementById('etaDropdown').selectedIndex = 0;
-  document.getElementById('deliveryDate').value = "";
 
-  console.log("✅ All fields cleared manually!");
+  // ✅ Set delivery date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('deliveryDate').value = today;
+
+  console.log("✅ All fields cleared and delivery date set to today!");
 }
+
 
 
 // Function to load message history from localStorage 
@@ -659,7 +663,13 @@ Driver: ${item.driverName} - ${item.driverPhone}
 window.onload = () => {
   loadHistory();
   displaySavedLater();
+
+  // ✅ Set delivery date to today on page load
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('deliveryDate').value = today;
 };
+
+
 
 
 
@@ -781,6 +791,7 @@ function sendMessage() {
             saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', sid);
 
 
+
             loadHistory();
             clearForm();
             setTimeout(() => { responseText.innerHTML = ""; }, 3001);
@@ -805,24 +816,45 @@ function saveForLater() {
   const templateDropdown = document.getElementById('messageTemplate');
   const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
   const templateSid = templateDropdown.value;
-  const driverValue = document.getElementById('driver').value;
-  const [driverName, driverPhone] = driverValue.split(' - ');
+  const driverValue = document.getElementById('driver').value || '';
+  const driverParts = driverValue.split(' - ');
+  const driverName = driverParts[0] || '';
+  const driverPhone = driverParts[1] || '';
   const vehicleReg = document.getElementById('vehicleReg').value;
   const deliveryDate = document.getElementById('deliveryDate').value;
+
+  if (!orderNumber || !templateSid) {
+    alert("⚠️ Please enter an order number and select a message template before saving.");
+    return;
+  }
+
+  const entryId = Date.now().toString() + Math.random().toString(36).substring(2, 8);
 
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
 
   saved.unshift({
-    phone, orderNumber, customerAddress, etaValue, siteContact, templateLabel, templateSid,
-    driverName, driverPhone, vehicleReg, deliveryDate,
-    used: false   // ✅ Add this line
+    id: entryId,
+    phone,
+    orderNumber,
+    customerAddress,
+    etaValue,
+    siteContact,
+    templateLabel,
+    templateSid,
+    driverName,
+    driverPhone,
+    vehicleReg,
+    deliveryDate,
+    used: false
   });
 
   localStorage.setItem('savedLater', JSON.stringify(saved));
   displaySavedLater();
-
   clearForm();
 }
+
+
+
 
 function displaySavedLater() {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
@@ -834,7 +866,14 @@ function displaySavedLater() {
     return;
   }
 
-  saved.forEach((item, index) => {
+  // ✅ Sort by delivery date (earliest first)
+  saved.sort((a, b) => {
+    const dateA = new Date(a.deliveryDate || 0);
+    const dateB = new Date(b.deliveryDate || 0);
+    return dateA - dateB;
+  });
+
+  saved.forEach(item => {
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.alignItems = 'center';
@@ -847,35 +886,35 @@ function displaySavedLater() {
     row.style.borderBottom = '1px solid #eee';
 
     const order = item.orderNumber || 'N/A';
-const template = item.templateLabel || 'N/A';
-const address = item.customerAddress || 'No Address';
-const driver = item.driverName || 'N/A';
+    const template = item.templateLabel || 'N/A';
+    const address = item.customerAddress || 'No Address';
+    const driver = item.driverName || 'N/A';
 
-// Format delivery date as "Thursday 23rd April"
-let formattedDate = 'TBC';
-if (item.deliveryDate) {
-  const dateObj = new Date(item.deliveryDate);
-  const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-  const dayNum = dateObj.getDate();
-  const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-  formattedDate = `${day} ${dayNum} ${month}`;
-}
+    // 📅 Format delivery date
+    let formattedDate = 'TBC';
+    if (item.deliveryDate) {
+      const dateObj = new Date(item.deliveryDate);
+      const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+      const dayNum = dateObj.getDate();
+      const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+      formattedDate = `${day} ${dayNum} ${month}`;
+    }
 
-const info = document.createElement('div');
-info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | ${driver} | ${formattedDate}`;
-
+    const info = document.createElement('div');
+    info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | ${driver} | ${formattedDate}`;
     info.style.flex = '1';
     info.style.overflow = 'hidden';
     info.style.textOverflow = 'ellipsis';
     info.style.whiteSpace = 'nowrap';
-    info.style.cursor = 'pointer'; 
+    info.style.cursor = 'pointer';
 
-    // ✅ THIS is the missing part to make it RED if used:
+    // ✅ Important: Color red if used
     if (item.used) {
       info.style.color = 'red';
     }
 
-    info.onclick = () => loadSavedEntry(index);
+    info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
+
 
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑️';
@@ -883,10 +922,10 @@ info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | 
     deleteBtn.style.border = 'none';
     deleteBtn.style.cursor = 'pointer';
     deleteBtn.style.fontSize = '12px';
-    deleteBtn.style.flex = '0';   // no shrinking
+    deleteBtn.style.flex = '0';
     deleteBtn.onclick = (e) => {
       e.stopPropagation();
-      deleteSavedEntry(index);
+      deleteSavedEntry(item);
     };
 
     row.appendChild(info);
@@ -897,36 +936,47 @@ info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | 
 
 
 
-
-function deleteSavedEntry(index) {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-  saved.splice(index, 1); // remove the entry at index
+function deleteSavedEntryById(entryId) {
+  let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  saved = saved.filter(entry => entry.id !== entryId);
   localStorage.setItem('savedLater', JSON.stringify(saved));
-  displaySavedLater(); // refresh view
+  displaySavedLater();
 }
 
 
-function loadSavedEntry(index) {
+
+function loadSavedEntry(orderNumber, phone) {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-  const item = saved[index];
+
+  const item = saved.find(entry =>
+    entry.orderNumber === orderNumber && entry.phone === phone
+  );
+
   if (!item) return;
 
-  document.getElementById('phone').value = item.phone;
-  document.getElementById('orderNumber').value = item.orderNumber;
-  document.getElementById('customerAddress').value = item.customerAddress;
-  document.getElementById('etaDropdown').value = item.etaValue;
-  document.getElementById('siteContact').value = item.siteContact;
-  document.getElementById('messageTemplate').value = item.templateSid;
-  document.getElementById('driver').value = `${item.driverName} - ${item.driverPhone}`;
-  document.getElementById('vehicleReg').value = item.vehicleReg;
-  document.getElementById('deliveryDate').value = item.deliveryDate;
+  // ✅ Load into form
+  document.getElementById('phone').value = item.phone || '';
+  document.getElementById('orderNumber').value = item.orderNumber || '';
+  document.getElementById('customerAddress').value = item.customerAddress || '';
+  document.getElementById('etaDropdown').value = item.etaValue || '';
+  document.getElementById('siteContact').value = item.siteContact || '';
+  document.getElementById('messageTemplate').value = item.templateSid || '';
+  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
+  document.getElementById('vehicleReg').value = item.vehicleReg || '';
+  document.getElementById('deliveryDate').value = item.deliveryDate || '';
 
   updateMessage();
 
-  // ✅ Mark the item as used
-  saved[index].used = true;
-  localStorage.setItem('savedLater', JSON.stringify(saved));
-  displaySavedLater(); // ✅ redraw with correct color
+  // ✅ Mark as used and update storage
+  const index = saved.findIndex(entry =>
+    entry.orderNumber === orderNumber && entry.phone === phone
+  );
+
+  if (index !== -1) {
+    saved[index].used = true;
+    localStorage.setItem('savedLater', JSON.stringify(saved));
+    displaySavedLater();
+  }
 }
 
 function clearSavedLater() {
