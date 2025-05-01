@@ -412,9 +412,20 @@
   <div style="color: gray; font-style: italic;">No saved entries yet.</div>
 </div>
 
-<div style="margin-top: 10px; text-align: right;">
+<div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
+  <button onclick="printSavedLater()" style="
+    background-color: green;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 5px;
+    cursor: pointer;
+  ">
+    🖨️ Print
+  </button>
   <button onclick="clearSavedLater()" style="
-    background-color: #dc3545; /* red */
+    background-color: #dc3545;
     color: white;
     border: none;
     padding: 8px 16px;
@@ -425,6 +436,7 @@
     🗑️ Clear All
   </button>
 </div>
+
 
 
 
@@ -977,16 +989,46 @@ function displaySavedLater() {
 
 
 
-function deleteSavedEntry(itemToDelete) {
+function printSavedLater() {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
 
-  const updated = saved.filter(item =>
-    !(item.orderNumber === itemToDelete.orderNumber && item.phone === itemToDelete.phone)
-  );
+  if (saved.length === 0) {
+    alert("No saved items to print.");
+    return;
+  }
 
-  localStorage.setItem('savedLater', JSON.stringify(updated));
-  displaySavedLater();
+  const printableWindow = window.open('', '_blank');
+  printableWindow.document.write('<html><head><title>Saved for Later List</title>');
+  printableWindow.document.write(`
+    <style>
+      body {
+        font-family: Arial;
+        font-size: 14px; /* Smaller font size */
+      }
+      li {
+        margin-bottom: 6px;
+      }
+    </style>
+  `);
+  printableWindow.document.write('</head><body><h2>Saved for Later List</h2><ul>');
+
+  saved.forEach(item => {
+    const order = item.orderNumber || 'N/A';
+    const status = item.templateLabel || 'N/A';
+    const address = item.customerAddress || 'N/A';
+    const date = item.deliveryDate || 'N/A';
+
+    const line = `Order: ${order} | Status: ${status} | Address: ${address} | Date: ${date}`;
+    printableWindow.document.write(`<li>${line}</li>`);
+  });
+
+  printableWindow.document.write('</ul></body></html>');
+  printableWindow.document.close();
+  printableWindow.print();
 }
+
+
+
 
 
 
