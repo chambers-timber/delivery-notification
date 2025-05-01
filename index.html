@@ -226,6 +226,44 @@
         
 </head>
 
+<!-- 🔐 LOGIN OVERLAY -->
+<div id="login-overlay" style="
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 255, 255, 0.98);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  font-family: Arial, sans-serif;
+">
+  <h2 style="margin-bottom: 10px;">Chambers Timber Admin Only Access</h2>
+  <input type="password" id="login-password" placeholder="Enter password..." style="
+    padding: 10px;
+    font-size: 16px;
+    width: 250px;
+    text-align: center;
+    border-radius: 6px;
+    border: 2px solid #ccc;
+  ">
+  <button onclick="checkPassword()" style="
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 16px;
+  width: 275px;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  background-color: #f5de20;
+  color: black;
+  cursor: pointer;
+">Login</button>
+
+  <p id="login-error" style="color: red; margin-top: 8px; display: none;">❌ Incorrect password</p>
+</div>
+
+
 <!-- FLEX CONTAINER: Main Layout (Left + Right Side) -->
 <div style="display: flex; height: 100vh; overflow: hidden;">
 
@@ -306,6 +344,9 @@
                   <option value="2:00pm - 3:00pm">2pm - 3pm</option>
                   <option value="3:00pm - 4:00pm">3pm - 4pm</option>
                   <option value="8:00am - 10:00am">8am - 10am</option>
+                  <option value="10:00am - 12:00am">10pm - 12pm</option>
+                  <option value="12:00pm - 2:00pm">12pm - 2pm</option>
+                  <option value="2:00pm - 4:00pm">2pm - 4pm</option>
                   <option value="AM">AM</option>
                   <option value="PM">PM</option>
                   <option value="Multidrop">Multidrop</option>
@@ -949,6 +990,7 @@ function deleteSavedEntry(itemToDelete) {
 
 
 
+
 function loadSavedEntry(orderNumber, phone) {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
 
@@ -990,11 +1032,22 @@ function clearSavedLater() {
   }
 }
 
+function checkPassword() {
+  const correctPassword = "timber123"; // 🔑 Change to your real password
+  const entered = document.getElementById('login-password').value;
+
+  if (entered === correctPassword) {
+    document.getElementById('login-overlay').style.display = 'none';
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
 
 
 //working 23/04/25 @ 8:54
 
     </script>
+    
 
 </body>
 </html> 
