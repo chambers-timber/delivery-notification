@@ -997,6 +997,9 @@ function printSavedLater() {
     return;
   }
 
+  // 🔼 Sort by delivery date (soonest first)
+  saved.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
+
   const printableWindow = window.open('', '_blank');
   printableWindow.document.write('<html><head><title>Saved for Later List</title>');
   printableWindow.document.write(`
@@ -1038,12 +1041,6 @@ function printSavedLater() {
   printableWindow.document.close();
   printableWindow.print();
 }
-
-
-
-
-
-
 
 
 function loadSavedEntry(orderNumber, phone) {
