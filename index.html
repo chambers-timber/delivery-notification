@@ -997,20 +997,8 @@ function printSavedLater() {
     return;
   }
 
-  // Get today's date in YYYY-MM-DD format for comparison
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0]; // e.g., "2025-05-02"
-
-  // Filter only today's orders
-  const todaysOrders = saved.filter(item => item.deliveryDate === todayStr);
-
-  if (todaysOrders.length === 0) {
-    alert("No saved orders scheduled for today.");
-    return;
-  }
-
   const printableWindow = window.open('', '_blank');
-  printableWindow.document.write('<html><head><title>Today\'s Saved Orders</title>');
+  printableWindow.document.write('<html><head><title>Saved for Later List</title>');
   printableWindow.document.write(`
     <style>
       body {
@@ -1022,21 +1010,27 @@ function printSavedLater() {
       }
     </style>
   `);
-  printableWindow.document.write('</head><body><h2>Saved Orders for Today</h2><ul>');
+  printableWindow.document.write('</head><body><h2>Saved for Later List</h2><ul>');
 
-  todaysOrders.forEach(item => {
+  saved.forEach(item => {
     const order = item.orderNumber || 'N/A';
     const status = item.templateLabel || 'N/A';
     const address = item.customerAddress || 'N/A';
 
-    const dateObj = new Date(item.deliveryDate);
-    const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-    const dayNum = dateObj.getDate();
-    const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-    const year = dateObj.getFullYear();
-    const formattedDate = `${day} ${dayNum} ${month} ${year}`;
+    // Format deliveryDate
+    let date = 'N/A';
+    if (item.deliveryDate) {
+      const dateObj = new Date(item.deliveryDate);
+      if (!isNaN(dateObj)) {
+        const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+        const dayNum = dateObj.getDate();
+        const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+        const year = dateObj.getFullYear();
+        date = `${day} ${dayNum} ${month} ${year}`;
+      }
+    }
 
-    const line = `Order: ${order} | Status: ${status} | Address: ${address} | Date: ${formattedDate}`;
+    const line = `Order: ${order} | Status: ${status} | Address: ${address} | Date: ${date}`;
     printableWindow.document.write(`<li>${line}</li>`);
   });
 
@@ -1044,6 +1038,11 @@ function printSavedLater() {
   printableWindow.document.close();
   printableWindow.print();
 }
+
+
+
+
+
 
 
 
