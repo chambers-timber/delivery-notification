@@ -1012,6 +1012,7 @@ function printSavedLater() {
   saved.forEach(item => {
     const order = item.orderNumber || 'N/A';
     const address = item.customerAddress || 'N/A';
+    const contact = item.siteContact || 'N/A';
 
     let date = 'N/A';
     if (item.deliveryDate) {
@@ -1025,7 +1026,7 @@ function printSavedLater() {
       }
     }
 
-    html += `<li>Order: ${order} | Address: ${address} | Date: ${date}</li>`;
+    html += `<li>Order: ${order} |    ${address}   |   ${contact}   |  ${date}  </li>`;
   });
 
   html += `</ul></div>`;
@@ -1042,6 +1043,61 @@ function printSavedLater() {
     location.reload(); // Refresh to reset event listeners etc.
   }, 500);
 }
+
+function loadSavedEntry(orderNumber, phone) {
+  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+
+  // Normalize phone numbers (remove spaces, standardize format)
+  const clean = str => str.replace(/\s+/g, '').replace(/^0/, '+44');
+  const cleanedPhone = clean(phone);
+
+  const item = saved.find(entry =>
+    entry.orderNumber === orderNumber &&
+    clean(entry.phone) === cleanedPhone
+  );
+
+  if (!item) {
+    alert("Could not find matching saved entry.");
+    return;
+  }
+
+  // ✅ Load into form
+  document.getElementById('phone').value = item.phone || '';
+  document.getElementById('orderNumber').value = item.orderNumber || '';
+  document.getElementById('customerAddress').value = item.customerAddress || '';
+  document.getElementById('etaDropdown').value = item.etaValue || '';
+  document.getElementById('siteContact').value = item.siteContact || '';
+  document.getElementById('messageTemplate').value = item.templateSid || '';
+  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
+  document.getElementById('vehicleReg').value = item.vehicleReg || '';
+  document.getElementById('deliveryDate').value = item.deliveryDate || '';
+
+  updateMessage();
+
+  // ✅ Mark as used and update storage
+  const index = saved.findIndex(entry =>
+    entry.orderNumber === orderNumber &&
+    clean(entry.phone) === cleanedPhone
+  );
+
+  if (index !== -1) {
+    saved[index].used = true;
+    localStorage.setItem('savedLater', JSON.stringify(saved));
+    displaySavedLater();
+  }
+}
+
+function deleteSavedEntry(entryToDelete) {
+  let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+
+  // Only remove the entry with the matching unique ID
+  saved = saved.filter(entry => entry.id !== entryToDelete.id);
+
+  localStorage.setItem('savedLater', JSON.stringify(saved));
+  displaySavedLater();
+}
+
+
 
 
 function clearSavedLater() {
