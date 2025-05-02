@@ -227,7 +227,7 @@
 </head>
 
 <!-- 🔐 LOGIN OVERLAY -->
-<div id="login-overlay" style="
+<!--  <div id="login-overlay" style="
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(255, 255, 255, 0.98);
@@ -262,7 +262,7 @@
 
   <p id="login-error" style="color: red; margin-top: 8px; display: none;">❌ Incorrect password</p>
 </div>
-
+-->
 
 <!-- FLEX CONTAINER: Main Layout (Left + Right Side) -->
 <div style="display: flex; height: 100vh; overflow: hidden;">
@@ -396,7 +396,7 @@
 <div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 40px; overflow-y: auto;">
 
   <!-- Saved for Later -->
-  <h3 style="margin-top: 20; margin-bottom: 10px;">💾 Saved for Later</h3>
+  <h3 style="margin-top: 20; margin-bottom: 10px;">💾 Saved Orders</h3>
   <div id="saved-for-later" style="
   background-color: #ffffff;
   border: 1px solid #ccc;
@@ -436,6 +436,8 @@
     🗑️ Clear All
   </button>
 </div>
+
+<div id="print-area" style="display:none;"></div>
 
 
 
@@ -954,7 +956,7 @@ function displaySavedLater() {
     }
 
     const info = document.createElement('div');
-    info.innerHTML = `<strong>Order: ${order}</strong> | ${template} | ${address} | ${driver} | ${formattedDate}`;
+    info.innerHTML = `<strong>Order: ${order}</strong>  | ${address} | ${driver} | ${formattedDate}`;
     info.style.flex = '1';
     info.style.overflow = 'hidden';
     info.style.textOverflow = 'ellipsis';
@@ -1000,27 +1002,17 @@ function printSavedLater() {
   // 🔼 Sort by delivery date (soonest first)
   saved.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
 
-  const printableWindow = window.open('', '_blank');
-  printableWindow.document.write('<html><head><title>Saved for Later List</title>');
-  printableWindow.document.write(`
-    <style>
-      body {
-        font-family: Arial;
-        font-size: 12px;
-      }
-      li {
-        margin-bottom: 6px;
-      }
-    </style>
-  `);
-  printableWindow.document.write('</head><body><h2>Saved for Later List</h2><ul>');
+  // Create printable content
+  let html = `
+    <div id="print-area">
+      <h2>Daily Delivery Check List</h2>
+      <ul style="font-family: Arial; font-size: 14px;">
+  `;
 
   saved.forEach(item => {
     const order = item.orderNumber || 'N/A';
-    const status = item.templateLabel || 'N/A';
     const address = item.customerAddress || 'N/A';
 
-    // Format deliveryDate
     let date = 'N/A';
     if (item.deliveryDate) {
       const dateObj = new Date(item.deliveryDate);
@@ -1033,49 +1025,24 @@ function printSavedLater() {
       }
     }
 
-    const line = `Order: ${order} | Status: ${status} | Address: ${address} | Date: ${date}`;
-    printableWindow.document.write(`<li>${line}</li>`);
+    html += `<li>Order: ${order} | Address: ${address} | Date: ${date}</li>`;
   });
 
-  printableWindow.document.write('</ul></body></html>');
-  printableWindow.document.close();
-  printableWindow.print();
+  html += `</ul></div>`;
+
+  // Temporarily overwrite body for printing
+  const originalBody = document.body.innerHTML;
+  document.body.innerHTML = html;
+
+  window.print();
+
+  // Restore original body after print
+  setTimeout(() => {
+    document.body.innerHTML = originalBody;
+    location.reload(); // Refresh to reset event listeners etc.
+  }, 500);
 }
 
-
-function loadSavedEntry(orderNumber, phone) {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-
-  const item = saved.find(entry =>
-    entry.orderNumber === orderNumber && entry.phone === phone
-  );
-
-  if (!item) return;
-
-  // ✅ Load into form
-  document.getElementById('phone').value = item.phone || '';
-  document.getElementById('orderNumber').value = item.orderNumber || '';
-  document.getElementById('customerAddress').value = item.customerAddress || '';
-  document.getElementById('etaDropdown').value = item.etaValue || '';
-  document.getElementById('siteContact').value = item.siteContact || '';
-  document.getElementById('messageTemplate').value = item.templateSid || '';
-  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
-  document.getElementById('vehicleReg').value = item.vehicleReg || '';
-  document.getElementById('deliveryDate').value = item.deliveryDate || '';
-
-  updateMessage();
-
-  // ✅ Mark as used and update storage
-  const index = saved.findIndex(entry =>
-    entry.orderNumber === orderNumber && entry.phone === phone
-  );
-
-  if (index !== -1) {
-    saved[index].used = true;
-    localStorage.setItem('savedLater', JSON.stringify(saved));
-    displaySavedLater();
-  }
-}
 
 function clearSavedLater() {
   if (confirm("Are you sure you want to clear all saved entries?")) {
@@ -1084,7 +1051,7 @@ function clearSavedLater() {
   }
 }
 
-function checkPassword() {
+/*function checkPassword() {
   const correctPassword = "timber123"; // 🔑 Change to your real password
   const entered = document.getElementById('login-password').value;
 
@@ -1093,7 +1060,7 @@ function checkPassword() {
   } else {
     document.getElementById('login-error').style.display = 'block';
   }
-}
+}*/
 
 
 //working 23/04/25 @ 8:54
