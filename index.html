@@ -1026,7 +1026,14 @@ function printSavedLater() {
       }
     }
 
-    html += `<li>Order: ${order} |    ${address}   |   ${contact}   |  ${date}  </li>`;
+    html += `
+  <li style="margin-bottom: 4px; line-height: 1.6;">
+    Order: ${order} | ${address} | ${contact} | ${date}
+  </li>
+  <hr style="border: 1px solid black; margin: 10px 0;">
+`;
+
+
   });
 
   html += `</ul></div>`;
