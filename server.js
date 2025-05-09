@@ -97,7 +97,9 @@ app.post('/send-message', async (req, res) => {
   try {
     console.log('📩 Incoming send-message POST body:', req.body);
 
-    let { phone, orderNumber, eta, deliveryDate, customerAddress, siteContact, templateSid } = req.body;
+    let { phone, orderNumber, eta, deliveryDate, customerAddress, siteContact, vehicleReg, templateSid } = req.body;
+    let vehicleType = vehicleReg;
+
 
     phone = formatPhoneNumber(phone);
 
@@ -129,7 +131,8 @@ app.post('/send-message', async (req, res) => {
         '2': eta.trim() || 'N/A',
         '3': customerAddress || 'N/A',
         '4': siteContact || 'N/A',
-        '5': mapImageUrl
+        '5': mapImageUrl,
+        '6': vehicleType || 'N/A' // NEW VARIABLE FOR VEHICLE TYPE
       });
     }
 
@@ -217,4 +220,6 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-}); 
+});  
+
+//fully working 06/05/25

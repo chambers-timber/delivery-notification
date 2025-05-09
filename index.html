@@ -319,9 +319,9 @@
               <label for="messageTemplate">📝 Select Message:</label><br>
               <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
                 <option value="">Choose a template...</option>
-                <option value="HXe409d244b93e3dd70144789d2e797664">Out for delivery</option>
-                <option value="HXb930591ce15ddf1213379a48a92349e0">Order Confirmation</option>
-                <option value="HXea334a5a136b808854eab2755556dd29">Collection Notification</option>
+                <option value="HXe409d244b93e3dd70144789d2e797664">DELIVERY</option>
+                <option value="HXb930591ce15ddf1213379a48a92349e0">CONFIRMATION</option>
+                <option value="HXea334a5a136b808854eab2755556dd29">COLLECTION</option>
               </select>
             </div>
             <div style="flex: 1;">
@@ -375,10 +375,8 @@
               <label for="vehicleReg">🚗 Vehicle Reg:</label><br>
               <select id="vehicleReg" style="width: 100%;">
                 <option value="">Choose a vehicle...</option>
-                <option value="SH 66 DUJ">SH 66 DUJ</option>
-                <option value="LT 72 ADV">LT 72 ADV</option>
-                <option value="LK 67 SWN">LK 67 SWN</option>
-                <option value="LX 21 EZH (HIAB)">LX 21 EZH (HIAB)</option>
+                <option value="3.5 Ton Flatbed">3.5 Ton Flatbed</option>
+                <option value="18 Ton (HIAB)">18 Ton HIAB</option>
               </select>
             </div>
           </div>
@@ -542,29 +540,44 @@
       chatThread.appendChild(msg);
     }
     // ✅ Poll for message status updates every 5 seconds
+// ✅ Poll for message status updates every 5 seconds
 setInterval(() => {
     const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+    let updated = false;
 
     savedHistory.forEach((entry, index) => {
-        if (!entry.messageSid || entry.status === 'read') return; // Skip completed or missing SIDs
+        if (!entry.messageSid || entry.status === 'read') return; // Skip if no SID or already final
 
-        fetch(`https://delivery-notification.onrender.com/message-status/${entry.messageSid}`) 
+        fetch(`https://delivery-notification.onrender.com/message-status/${entry.messageSid}`)
             .then(res => res.json())
             .then(data => {
                 if (data.status && data.status !== entry.status) {
                     console.log(`🔄 Status update: ${entry.messageSid} changed to ${data.status}`);
                     savedHistory[index].status = data.status;
-                    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
-                    loadHistory();
+                    updated = true;
                 }
             })
             .catch(err => console.warn('❌ Error checking status:', err));
     });
+
+    // ✅ Only update UI once after all fetches complete
+    setTimeout(() => {
+        if (updated) {
+            localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
+            loadHistory();         // Refresh left column
+            displaySavedLater();   // Refresh right column
+        }
+    }, 1000);
+
 }, 5000);
+
 
   </script>
   
     <script>
+        let loadedFromSaved = false;
+
+
         let selectedNumber = null;
 
 function selectMessage(el) {
@@ -776,90 +789,126 @@ function loadHistory() {
 }
 
 
-
-
 // Updated sendMessage() function
 function sendMessage() {
-    let phone = document.getElementById('phone').value.trim();
-    let orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-    let customerAddress = document.getElementById('customerAddress').value.trim();
-    let etaValue = document.getElementById("etaDropdown").value;
-    let siteContact = document.getElementById('siteContact').value.trim();
-    let templateDropdown = document.getElementById('messageTemplate');
-    let templateSid = templateDropdown.value;
-    let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
-    const driverValue = document.getElementById('driver').value;
-    const [driverName, driverPhone] = driverValue.split(' - ');
+  let phone = document.getElementById('phone').value.trim();
+  let orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+  let customerAddress = document.getElementById('customerAddress').value.trim();
+  let etaValue = document.getElementById("etaDropdown").value;
+  let siteContactInput = document.getElementById('siteContact').value.trim();
+  let siteContact = siteContactInput || phone;
+  let templateDropdown = document.getElementById('messageTemplate');
+  let templateSid = templateDropdown.value;
+  let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
+  const driverValue = document.getElementById('driver').value;
+  const [driverName, driverPhone] = driverValue.split(' - ');
 
-    let vehicleReg = document.getElementById('vehicleReg').value;
-    const responseText = document.getElementById('response');
-    const loading = document.getElementById('loading');
-    const deliveryDate = document.getElementById('deliveryDate').value;
+  let vehicleReg = document.getElementById('vehicleReg').value;
+  const responseText = document.getElementById('response');
+  const loading = document.getElementById('loading');
+  const deliveryDate = document.getElementById('deliveryDate').value;
 
-    if (!phone) {
-        responseText.style.color = "red";
-        responseText.innerHTML = "Please enter a valid phone number.";
-        return;
+  if (!phone) {
+    responseText.style.color = "red";
+    responseText.innerHTML = "Please enter a valid phone number.";
+    return;
+  }
+
+  // ✅ Only check Delivery Date if Order Confirmation template is selected
+  if (templateSid === "HXb930591ce15ddf1213379a48a92349e0" && !deliveryDate) {
+    responseText.style.color = "red";
+    responseText.innerHTML = "Please select a Delivery Date for Order Confirmations.";
+    return;
+  }
+
+  loading.style.display = "block";
+  responseText.innerHTML = "";
+
+  fetch('https://delivery-notification.onrender.com/send-message', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      phone,
+      orderNumber,
+      eta: etaValue,
+      deliveryDate,
+      customerAddress,
+      siteContact,
+      driver,
+      vehicleReg,
+      templateSid
+    })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Server responded with status: ${response.status}`);
     }
+    return response.json(); 
+  })
+  .then(data => {
+    loading.style.display = "none";
 
-    // ✅ Only check Delivery Date if Order Confirmation
-    if (templateSid === "HXb930591ce15ddf1213379a48a92349e0" && !deliveryDate) {
-        responseText.style.color = "red";
-        responseText.innerHTML = "Please select a Delivery Date for Order Confirmations.";
-        return;
+    if (data.success) {
+      responseText.style.color = "green";
+      responseText.innerHTML = "Message sent successfully! ✅";
+
+      const sid = data.sid || '';
+
+      // ✅ Save to message history
+      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', sid);
+
+      // ✅ Determine if this is an order confirmation
+      const isOrderConfirmation = (templateSid === "HXb930591ce15ddf1213379a48a92349e0");
+
+      // ✅ Only add to Saved Orders if not loaded from saved entry
+      if (!loadedFromSaved) {
+        let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+
+        // Remove any existing entry with the same order number
+        saved = saved.filter(entry => entry.orderNumber !== orderNumber);
+
+        // Add the new entry
+        saved.unshift({
+          phone,
+          orderNumber,
+          customerAddress,
+          etaValue,
+          siteContact,
+          templateLabel,
+          templateSid,
+          driverName,
+          driverPhone,
+          vehicleReg,
+          deliveryDate,
+          used: !isOrderConfirmation // false for Order Confirmation, true for Delivery Confirmation
+        });
+
+        localStorage.setItem('savedLater', JSON.stringify(saved));
+        displaySavedLater(); // refresh Saved Orders panel
+      }
+
+      loadHistory();
+      clearForm();
+
+      // ✅ Reset flag so future sends can be saved again
+      loadedFromSaved = false;
+
+      setTimeout(() => { responseText.innerHTML = ""; }, 3001);
+    } else {
+      throw new Error(data.error || "Unknown error occurred");
     }
-
-    loading.style.display = "block";
-    responseText.innerHTML = "";
-
-    fetch('https://delivery-notification.onrender.com/send-message', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            phone,
-            orderNumber,
-            eta: etaValue,
-            deliveryDate,
-            customerAddress,
-            siteContact,
-            driver,
-            vehicleReg,
-            templateSid
-        })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Server responded with status: ${response.status}`);
-        }
-        return response.json(); 
-    })
-    .then(data => {
-        loading.style.display = "none";
-
-        if (data.success) {
-            responseText.style.color = "green";
-            responseText.innerHTML = "Message sent successfully! ✅";
-
-            const sid = data.sid || '';
-            saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', sid);
-
-
-
-            loadHistory();
-            clearForm();
-            setTimeout(() => { responseText.innerHTML = ""; }, 3001);
-        } else {
-            throw new Error(data.error || "Unknown error occurred");
-        }
-    })
-    .catch(error => {
-        loading.style.display = "none";
-        responseText.style.color = "red";
-        responseText.innerHTML = `Error: ${error.message}`;
-    });
+  })
+  .catch(error => {
+    loading.style.display = "none";
+    responseText.style.color = "red";
+    responseText.innerHTML = `Error: ${error.message}`;
+  });
 }
+
+
+
 
 
 function saveForLater() {
@@ -921,31 +970,32 @@ function displaySavedLater() {
     return;
   }
 
-  // ✅ Sort by delivery date (earliest first)
+  // Sort by delivery date
   saved.sort((a, b) => {
     const dateA = new Date(a.deliveryDate || 0);
     const dateB = new Date(b.deliveryDate || 0);
     return dateA - dateB;
   });
 
+  const messageHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+
   saved.forEach(item => {
     const row = document.createElement('div');
     row.style.display = 'flex';
     row.style.alignItems = 'center';
     row.style.justifyContent = 'space-between';
-    row.style.gap = '2px';
-    row.style.padding = '2px 10px';
+    row.style.gap = '10px';
+    row.style.padding = '6px 10px';
     row.style.margin = '0';
-    row.style.lineHeight = '1';
+    row.style.lineHeight = '1.2';
     row.style.fontSize = '13px';
     row.style.borderBottom = '1px solid #eee';
 
     const order = item.orderNumber || 'N/A';
-    const template = item.templateLabel || 'N/A';
     const address = item.customerAddress || 'No Address';
     const driver = item.driverName || 'N/A';
 
-    // 📅 Format delivery date
+    // Format delivery date
     let formattedDate = 'TBC';
     if (item.deliveryDate) {
       const dateObj = new Date(item.deliveryDate);
@@ -955,22 +1005,63 @@ function displaySavedLater() {
       formattedDate = `${day} ${dayNum} ${month}`;
     }
 
+    // Determine message status (only show if not pending/queued)
+    let status = '';
+    if (item.used) {
+      const match = messageHistory.find(h =>
+        h.messageSid && h.orderNumber === item.orderNumber
+      );
+      if (match && match.status && !['pending', 'queued'].includes(match.status.toLowerCase())) {
+        status = match.status;
+      }
+    }
+
+    // Order info (left)
     const info = document.createElement('div');
-    info.innerHTML = `<strong>Order: ${order}</strong>  | ${address} | ${driver} | ${formattedDate}`;
+    info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${driver} | ${formattedDate}`;
     info.style.flex = '1';
     info.style.overflow = 'hidden';
     info.style.textOverflow = 'ellipsis';
     info.style.whiteSpace = 'nowrap';
     info.style.cursor = 'pointer';
-
-    // ✅ Important: Color red if used
-    if (item.used) {
-      info.style.color = 'red';
-    }
-
+    if (item.used) info.style.color = 'red';
     info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
 
+    // Status (middle)
+    const statusLabel = document.createElement('div');
+    statusLabel.style.display = 'flex';
+    statusLabel.style.alignItems = 'center';
+    statusLabel.style.justifyContent = 'center';
+    statusLabel.style.gap = '5px';
+    statusLabel.style.fontSize = '12px';
+    statusLabel.style.flex = '0';
+    statusLabel.style.minWidth = '60px';
 
+    if (status) {
+      let statusColor = 'gray';
+      let icon = '⏳';
+
+      if (status.toLowerCase() === 'sent') {
+        statusColor = 'blue';
+        icon = '📨';
+      } else if (status.toLowerCase() === 'delivered') {
+        statusColor = 'green';
+        icon = '✅';
+      } else if (status.toLowerCase() === 'read') {
+        statusColor = 'black';
+        icon = '✅✅';
+      }
+
+      statusLabel.style.color = statusColor;
+      statusLabel.innerHTML = `
+        <span style="font-size: 14px;">${icon}</span>
+        <span style="text-transform: lowercase;">${status}</span>
+      `;
+    } else {
+      statusLabel.innerHTML = ''; // Leave blank
+    }
+
+    // Delete button (right)
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑️';
     deleteBtn.style.background = 'transparent';
@@ -984,10 +1075,16 @@ function displaySavedLater() {
     };
 
     row.appendChild(info);
+    row.appendChild(statusLabel);
     row.appendChild(deleteBtn);
     container.appendChild(row);
   });
 }
+
+
+
+
+
 
 
 
@@ -1054,7 +1151,7 @@ function printSavedLater() {
 function loadSavedEntry(orderNumber, phone) {
   const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
 
-  // Normalize phone numbers (remove spaces, standardize format)
+  // Normalize phone numbers
   const clean = str => str.replace(/\s+/g, '').replace(/^0/, '+44');
   const cleanedPhone = clean(phone);
 
@@ -1068,7 +1165,7 @@ function loadSavedEntry(orderNumber, phone) {
     return;
   }
 
-  // ✅ Load into form
+  // ✅ Load values into form
   document.getElementById('phone').value = item.phone || '';
   document.getElementById('orderNumber').value = item.orderNumber || '';
   document.getElementById('customerAddress').value = item.customerAddress || '';
@@ -1081,18 +1178,22 @@ function loadSavedEntry(orderNumber, phone) {
 
   updateMessage();
 
-  // ✅ Mark as used and update storage
+  // ✅ Mark this entry as used if not already
   const index = saved.findIndex(entry =>
     entry.orderNumber === orderNumber &&
     clean(entry.phone) === cleanedPhone
   );
 
-  if (index !== -1) {
+  if (index !== -1 && !saved[index].used) {
     saved[index].used = true;
     localStorage.setItem('savedLater', JSON.stringify(saved));
     displaySavedLater();
   }
+
+  // ✅ Set global flag so sendMessage() knows this was loaded
+  loadedFromSaved = true;
 }
+
 
 function deleteSavedEntry(entryToDelete) {
   let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
@@ -1126,7 +1227,7 @@ function clearSavedLater() {
 }*/
 
 
-//working 23/04/25 @ 8:54
+//fully working 06/05/25 1135 lines of code
 
     </script>
     
