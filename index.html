@@ -222,6 +222,32 @@
 
 
         </style>
+
+        <!-- Firebase App (core SDK) -->
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+
+<!-- Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+
+<script>
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7SOflbN-tHTsr7qi20AarWfsoaDJR7Xc",
+    authDomain: "ct-delivery-notification.firebaseapp.com",
+    databaseURL: "https://ct-delivery-notification-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "ct-delivery-notification",
+    storageBucket: "ct-delivery-notification.firebasestorage.app",
+    messagingSenderId: "487475599853",
+    appId: "1:487475599853:web:2fad921d97dbacebd76fe4",
+    measurementId: "G-PVHMPPXZ2R"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+</script>
+
+
         
 </head>
 
@@ -562,34 +588,27 @@ function showTab(id) {
     // ✅ Poll for message status updates every 5 seconds
 // ✅ Poll for message status updates every 5 seconds
 setInterval(() => {
-    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-    let updated = false;
+  firebase.database().ref('messageHistory').once('value')
+    .then(snapshot => {
+      const history = snapshot.val() || {};
+      const updates = [];
 
-    savedHistory.forEach((entry, index) => {
-        if (!entry.messageSid || entry.status === 'read') return; // Skip if no SID or already final
+      Object.entries(history).forEach(([id, entry]) => {
+        if (!entry.messageSid || entry.status === 'read') return;
 
-        fetch(`https://delivery-notification.onrender.com/message-status/${entry.messageSid}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.status && data.status !== entry.status) {
-                    console.log(`🔄 Status update: ${entry.messageSid} changed to ${data.status}`);
-                    savedHistory[index].status = data.status;
-                    updated = true;
-                }
-            })
-            .catch(err => console.warn('❌ Error checking status:', err));
+        fetch(`/message-status/${entry.messageSid}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.status && data.status !== entry.status) {
+              console.log(`🔄 SID ${entry.messageSid} → ${data.status}`);
+              firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
+            }
+          })
+          .catch(err => console.warn('❌ Error checking status:', err));
+      });
     });
-
-    // ✅ Only update UI once after all fetches complete
-    setTimeout(() => {
-        if (updated) {
-            localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
-            loadHistory();         // Refresh left column
-            displaySavedLater();   // Refresh right column
-        }
-    }, 1000);
-
 }, 5000);
+
 
 
   </script>
@@ -728,88 +747,99 @@ window.onload = () => {
 
 
 
-// Function to save message history to localStorage
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', status = 'Saved', messageSid = '') {
-    let savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
 
-    // Format: "Thursday 23rd April"
-    let formattedDeliveryDate = '';
-    if (deliveryDate) {
-        const dateObj = new Date(deliveryDate);
-        const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-        const dayNum = dateObj.getDate();
-        const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-        formattedDeliveryDate = `${day} ${dayNum} ${month}`;
-    } else {
-        formattedDeliveryDate = 'TBC';
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', status = 'Sent', messageSid = '') {
+  let formattedDeliveryDate = 'TBC';
+  if (deliveryDate) {
+    const dateObj = new Date(deliveryDate);
+    if (!isNaN(dateObj)) {
+      const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+      const dayNum = dateObj.getDate();
+      const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+      formattedDeliveryDate = `${day} ${dayNum} ${month}`;
     }
+  }
 
-    // 🕒 Add current time
-    const now = new Date();
-    const timeSent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const now = new Date();
+  const timeSent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-    const historyItem = {
-        orderNumber,
-        templateLabel,
-        driverName,
-        driverPhone,
-        customerAddress,
-        siteContact,
-        deliveryDate: formattedDeliveryDate,
-        status,
-        messageSid,
-        timeSent  // ✅ added timestamp
-    };
+  const historyItem = {
+  orderNumber: orderNumber.trim().toUpperCase(),
+  templateLabel: templateLabel || '',
+  driverName: driverName || '',
+  driverPhone: driverPhone || '',
+  customerAddress: customerAddress || '',
+  siteContact: siteContact || '',
+  deliveryDate: formattedDeliveryDate || '',
+  status: status || '',
+  messageSid: messageSid || '',
+  timeSent
+};
 
-    savedHistory.unshift(historyItem);
-    localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
+
+  // ✅ Ensure it's saving to the correct path
+  firebase.database().ref('messageHistory').push(historyItem)
+    .then(() => console.log("✅ messageHistory entry saved:", messageSid))
+    .catch(err => console.error("❌ Failed to save messageHistory:", err));
 }
 
 
 
 
 
-function loadHistory() {
-    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-    const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '';
 
-    savedHistory.forEach(item => {
+function loadHistory() {
+  const historyList = document.getElementById('history-list');
+  historyList.innerHTML = 'Loading...';
+
+  firebase.database().ref('messageHistory').once('value') // ✅ fixed path
+    .then(snapshot => {
+      const data = snapshot.val();
+      const items = data ? Object.values(data) : [];
+
+      if (items.length === 0) {
+        historyList.innerHTML = '<li style="color: gray;">No history yet.</li>';
+        return;
+      }
+
+      historyList.innerHTML = ''; // Clear list
+
+      items.sort((a, b) => new Date(b.timeSent || 0) - new Date(a.timeSent || 0));
+
+      items.forEach(item => {
         const entry = document.createElement('li');
 
-        // Handle status display
         let status = item.status || '';
-        let statusIcon = '';
-        let statusColor = 'gray';
+        let icon = '⏳', color = 'gray';
 
         if (status.toLowerCase() === 'sent') {
-            statusIcon = '📨';
-            statusColor = 'blue';
+          icon = '📨'; color = 'blue';
         } else if (status.toLowerCase() === 'delivered') {
-            statusIcon = '✅';
-            statusColor = 'green';
+          icon = '✅'; color = 'green';
         } else if (status.toLowerCase() === 'read') {
-            statusIcon = '✅✅';
-            statusColor = 'black';
+          icon = '✅✅'; color = 'black';
         }
 
-        // Driver and time sent
         const driver = item.driverName || 'N/A';
         const time = item.timeSent || 'N/A';
 
-        // Build final entry
         entry.innerHTML = `
-            <span style="color: ${statusColor}; margin-right: 5px;">${statusIcon}</span>
-            ${item.orderNumber}  |
-            ${item.templateLabel} |
-            ${item.customerAddress || 'N/A'} |
-            ${item.siteContact || 'N/A'} |
-            ${item.deliveryDate} |
-            <strong>Driver:</strong> ${driver} |
-            <strong>Time:</strong> ${time}
+          <span style="color: ${color}; margin-right: 5px;">${icon}</span>
+          ${item.orderNumber} |
+          ${item.templateLabel} |
+          ${item.customerAddress || 'N/A'} |
+          ${item.siteContact || 'N/A'} |
+          ${item.deliveryDate} |
+          <strong>Driver:</strong> ${driver} |
+          <strong>Time:</strong> ${time}
         `;
 
         historyList.appendChild(entry);
+      });
+    })
+    .catch(err => {
+      console.error("❌ Failed to load history:", err);
+      historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
     });
 }
 
@@ -840,7 +870,6 @@ function sendMessage() {
     return;
   }
 
-  // ✅ Only check Delivery Date if Order Confirmation template is selected
   if (templateSid === "HXb930591ce15ddf1213379a48a92349e0" && !deliveryDate) {
     responseText.style.color = "red";
     responseText.innerHTML = "Please select a Delivery Date for Order Confirmations.";
@@ -882,21 +911,12 @@ function sendMessage() {
 
       const sid = data.sid || '';
 
-      // ✅ Save to message history
+      // ✅ Save message history to Firebase
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', sid);
 
-      // ✅ Determine if this is an order confirmation
-      const isOrderConfirmation = (templateSid === "HXb930591ce15ddf1213379a48a92349e0");
-
-      // ✅ Only add to Saved Orders if not loaded from saved entry
+      // ✅ Save order to Firebase if it wasn’t loaded from a saved entry
       if (!loadedFromSaved) {
-        let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-
-        // Remove any existing entry with the same order number
-        saved = saved.filter(entry => entry.orderNumber !== orderNumber);
-
-        // Add the new entry
-       saved.unshift({
+        const entry = {
           phone,
           orderNumber,
           customerAddress,
@@ -908,18 +928,23 @@ function sendMessage() {
           driverPhone,
           vehicleReg,
           deliveryDate,
-          used: false // Always reset status to false on any re-send
-        });
+          used: false
+        };
 
-
-        localStorage.setItem('savedLater', JSON.stringify(saved));
-        displaySavedLater(); // refresh Saved Orders panel
+        firebase.database().ref('savedLater').push(entry)
+          .then(() => {
+            console.log("✅ Order saved to Firebase:", orderNumber);
+            displaySavedLater();
+          })
+          .catch(err => {
+            console.error("❌ Error saving to Firebase:", err);
+            alert("❌ Failed to save order. Please check your internet or Firebase rules.");
+          });
       }
 
+      // ✅ Update UI + reset
       loadHistory();
       clearForm();
-
-      // ✅ Reset flag so future sends can be saved again
       loadedFromSaved = false;
 
       setTimeout(() => { responseText.innerHTML = ""; }, 3001);
@@ -933,6 +958,57 @@ function sendMessage() {
     responseText.innerHTML = `Error: ${error.message}`;
   });
 }
+
+function pollStatusUpdates() {
+  console.log("⏳ Polling message statuses...");
+
+  firebase.database().ref('messageHistory').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        console.warn("⚠️ No message history found.");
+        return;
+      }
+
+      Object.entries(data).forEach(([id, entry]) => {
+        if (!entry.messageSid) {
+          console.warn(`❌ No SID for entry ${id}`);
+          return;
+        }
+
+        if (entry.status === 'read') {
+          console.log(`✅ Skipping read message: ${entry.messageSid}`);
+          return;
+        }
+
+        console.log(`📤 Checking status for SID: ${entry.messageSid}`);
+
+        fetch(`/message-status/${entry.messageSid}`)
+          .then(res => res.json())
+          .then(statusData => {
+            console.log(`📩 Response for ${entry.messageSid}:`, statusData);
+
+            const newStatus = statusData.status;
+
+            if (
+              newStatus &&
+              typeof newStatus === 'string' &&
+              newStatus.trim() !== '' &&
+              newStatus !== entry.status
+            ) {
+              console.log(`🔄 Updating ${entry.messageSid}: ${entry.status} → ${newStatus}`);
+              firebase.database().ref(`messageHistory/${id}/status`).set(newStatus);
+            } else {
+              console.log(`ℹ️ No update needed for ${entry.messageSid}: current=${entry.status}, new=${newStatus}`);
+            }
+          })
+          .catch(err => console.warn(`❌ Failed to fetch status for SID ${entry.messageSid}:`, err));
+      });
+    })
+    .catch(err => console.error("❌ Failed to poll message history:", err));
+}
+
+
 
 
 
@@ -959,12 +1035,8 @@ function saveForLater() {
     return;
   }
 
-  const entryId = Date.now().toString() + Math.random().toString(36).substring(2, 8);
-
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-
-  saved.unshift({
-    id: entryId,
+  const entry = {
+    id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
     phone,
     orderNumber,
     customerAddress,
@@ -977,141 +1049,158 @@ function saveForLater() {
     vehicleReg,
     deliveryDate,
     used: false
-  });
+  };
 
-  localStorage.setItem('savedLater', JSON.stringify(saved));
-  displaySavedLater();
-  clearForm();
+  // ✅ Save to Firebase Realtime Database
+  firebase.database().ref('savedLater').push(entry)
+    .then(() => {
+      console.log("✅ Saved to Firebase:", entry.orderNumber);
+      displaySavedLater(); // refresh UI from Firebase
+      clearForm();
+    })
+    .catch(error => {
+      console.error("❌ Firebase save failed:", error);
+      alert("Failed to save. Please check your connection or Firebase rules.");
+    });
 }
+
 
 
 
 
 function displaySavedLater() {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
   const container = document.getElementById('saved-for-later');
-  container.innerHTML = '';
+  container.innerHTML = '<div style="color: gray; font-style: italic;">Loading...</div>';
 
-  if (saved.length === 0) {
-    container.innerHTML = '<div style="color: gray; font-style: italic;">No saved entries yet.</div>';
-    return;
-  }
-
-  // Sort by delivery date
-  saved.sort((a, b) => {
-    const dateA = new Date(a.deliveryDate || 0);
-    const dateB = new Date(b.deliveryDate || 0);
-    return dateA - dateB;
-  });
-
-  const messageHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-
-  saved.forEach(item => {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.justifyContent = 'space-between';
-    row.style.gap = '10px';
-    row.style.padding = '6px 10px';
-    row.style.margin = '0';
-    row.style.lineHeight = '1.2';
-    row.style.fontSize = '13px';
-    row.style.borderBottom = '1px solid #eee';
-
-    const order = item.orderNumber || 'N/A';
-    const address = item.customerAddress || 'No Address';
-    const driver = item.driverName || 'N/A';
-
-    // Format delivery date
-    let formattedDate = 'TBC';
-    if (item.deliveryDate) {
-      const dateObj = new Date(item.deliveryDate);
-      const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-      const dayNum = dateObj.getDate();
-      const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-      formattedDate = `${day} ${dayNum} ${month}`;
-    }
-
-    // Determine message status (only show if not pending/queued)
-    let status = '';
-    if (item.used) {
-      const match = messageHistory.find(h =>
-        h.messageSid && h.orderNumber === item.orderNumber
-      );
-      if (match && match.status && !['pending', 'queued'].includes(match.status.toLowerCase())) {
-        status = match.status;
-      }
-    }
-
-    // Order info (left)
-    const info = document.createElement('div');
-    info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${driver} | ${formattedDate}`;
-    info.style.flex = '1';
-    info.style.overflow = 'hidden';
-    info.style.textOverflow = 'ellipsis';
-    info.style.whiteSpace = 'nowrap';
-    info.style.cursor = 'pointer';
-    //if (item.used) info.style.color = 'red';
-    info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
-
-    // Status (middle)
-    const statusLabel = document.createElement('div');
-    statusLabel.style.display = 'flex';
-    statusLabel.style.alignItems = 'center';
-    statusLabel.style.justifyContent = 'center';
-    statusLabel.style.gap = '5px';
-    statusLabel.style.fontSize = '12px';
-    statusLabel.style.flex = '0';
-    statusLabel.style.minWidth = '60px';
-
-    if (status) {
-      let statusColor = 'gray';
-      let icon = '⏳';
-
-      if (status.toLowerCase() === 'sent') {
-        statusColor = 'blue';
-        icon = '📨';
-      } else if (status.toLowerCase() === 'delivered') {
-        statusColor = 'green';
-        icon = '✅';
-      } else if (status.toLowerCase() === 'read') {
-        statusColor = 'black';
-        icon = '✅✅';
+  firebase.database().ref('savedLater').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        container.innerHTML = '<div style="color: gray; font-style: italic;">No saved entries yet.</div>';
+        return;
       }
 
-      statusLabel.style.color = statusColor;
-      statusLabel.innerHTML = `
-        <span style="font-size: 14px;">${icon}</span>
-        <span style="text-transform: lowercase;">${status}</span>
-      `;
-    } else {
-      statusLabel.innerHTML = ''; // Leave blank
-    }
+      const saved = Object.entries(data).map(([firebaseId, item]) => ({
+        ...item,
+        firebaseId
+      }));
 
-    // Delete button (right)
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = '🗑️';
-    deleteBtn.style.background = 'transparent';
-    deleteBtn.style.border = 'none';
-    deleteBtn.style.cursor = 'pointer';
-    deleteBtn.style.fontSize = '12px';
-    deleteBtn.style.flex = '0';
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteSavedEntry(item);
-    };
+      // Sort by delivery date
+      saved.sort((a, b) => new Date(a.deliveryDate || 0) - new Date(b.deliveryDate || 0));
 
-    row.appendChild(info);
-    row.appendChild(statusLabel);
-    row.appendChild(deleteBtn);
-    container.appendChild(row);
-  });
+      // Load message history from Firebase
+      firebase.database().ref('messageHistory').once('value')
+        .then(historySnap => {
+          const messageHistory = historySnap.val() ? Object.values(historySnap.val()) : [];
+
+          container.innerHTML = ''; // Clear loading
+
+          saved.forEach(item => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.justifyContent = 'space-between';
+            row.style.gap = '10px';
+            row.style.padding = '6px 10px';
+            row.style.margin = '0';
+            row.style.lineHeight = '1.2';
+            row.style.fontSize = '13px';
+            row.style.borderBottom = '1px solid #eee';
+
+            const order = item.orderNumber || 'N/A';
+            const address = item.customerAddress || 'No Address';
+            const driver = item.driverName || 'N/A';
+
+            let formattedDate = 'TBC';
+            if (item.deliveryDate) {
+              const dateObj = new Date(item.deliveryDate);
+              if (!isNaN(dateObj)) {
+                const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+                const dayNum = dateObj.getDate();
+                const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+                formattedDate = `${day} ${dayNum} ${month}`;
+              }
+            }
+
+            // ✅ Always attempt to match status, even if item.used is false
+            let status = '';
+            const match = messageHistory.find(h =>
+              h.messageSid &&
+              h.orderNumber?.trim().toUpperCase() === item.orderNumber?.trim().toUpperCase()
+            );
+            if (match && match.status && !['pending', 'queued'].includes(match.status.toLowerCase())) {
+              status = match.status;
+            }
+
+            const info = document.createElement('div');
+            info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${driver} | ${formattedDate}`;
+            info.style.flex = '1';
+            info.style.overflow = 'hidden';
+            info.style.textOverflow = 'ellipsis';
+            info.style.whiteSpace = 'nowrap';
+            info.style.cursor = 'pointer';
+            info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
+
+            const statusLabel = document.createElement('div');
+            statusLabel.style.display = 'flex';
+            statusLabel.style.alignItems = 'center';
+            statusLabel.style.justifyContent = 'center';
+            statusLabel.style.gap = '5px';
+            statusLabel.style.fontSize = '12px';
+            statusLabel.style.flex = '0';
+            statusLabel.style.minWidth = '60px';
+
+            if (status) {
+              let statusColor = 'gray';
+              let icon = '⏳';
+
+              if (status.toLowerCase() === 'sent') {
+                statusColor = 'blue';
+                icon = '📨';
+              } else if (status.toLowerCase() === 'delivered') {
+                statusColor = 'green';
+                icon = '✅';
+              } else if (status.toLowerCase() === 'read') {
+                statusColor = 'black';
+                icon = '✅✅';
+              }
+
+              statusLabel.style.color = statusColor;
+              statusLabel.innerHTML = `
+                <span style="font-size: 14px;">${icon}</span>
+                <span style="text-transform: lowercase;">${status}</span>
+              `;
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '🗑️';
+            deleteBtn.style.background = 'transparent';
+            deleteBtn.style.border = 'none';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.style.fontSize = '12px';
+            deleteBtn.style.flex = '0';
+            deleteBtn.onclick = (e) => {
+              e.stopPropagation();
+              firebase.database().ref(`savedLater/${item.firebaseId}`).remove()
+                .then(() => displaySavedLater());
+            };
+
+            row.appendChild(info);
+            row.appendChild(statusLabel);
+            row.appendChild(deleteBtn);
+            container.appendChild(row);
+          });
+        })
+        .catch(err => {
+          console.error("❌ Error loading messageHistory from Firebase:", err);
+          container.innerHTML = `<div style="color: red;">Error loading message status: ${err.message}</div>`;
+        });
+    })
+    .catch(error => {
+      console.error('❌ Error loading savedLater from Firebase:', error);
+      container.innerHTML = `<div style="color: red;">Error loading saved entries: ${error.message}</div>`;
+    });
 }
-
-
-
-
-
 
 
 
@@ -1176,71 +1265,102 @@ function printSavedLater() {
 }
 
 function loadSavedEntry(orderNumber, phone) {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  const container = document.getElementById('saved-for-later');
 
-  // Normalize phone numbers
-  const clean = str => str.replace(/\s+/g, '').replace(/^0/, '+44');
-  const cleanedPhone = clean(phone);
+  firebase.database().ref('savedLater').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        alert("Could not find matching saved entry.");
+        return;
+      }
 
-  const item = saved.find(entry =>
-    entry.orderNumber === orderNumber &&
-    clean(entry.phone) === cleanedPhone
-  );
+      const entries = Object.values(data);
+      const clean = str => str?.replace(/\s+/g, '').replace(/^0/, '+44') || '';
+      const cleanedPhone = clean(phone);
+      const cleanedOrder = orderNumber?.trim().toUpperCase();
 
-  if (!item) {
-    alert("Could not find matching saved entry.");
-    return;
-  }
+      const item = entries.find(entry =>
+        entry.orderNumber?.trim().toUpperCase() === cleanedOrder &&
+        clean(entry.phone) === cleanedPhone
+      );
 
-  // ✅ Load values into form
-  document.getElementById('phone').value = item.phone || '';
-  document.getElementById('orderNumber').value = item.orderNumber || '';
-  document.getElementById('customerAddress').value = item.customerAddress || '';
-  document.getElementById('etaDropdown').value = item.etaValue || '';
-  document.getElementById('siteContact').value = item.siteContact || '';
-  document.getElementById('messageTemplate').value = item.templateSid || '';
-  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
-  document.getElementById('vehicleReg').value = item.vehicleReg || '';
-  document.getElementById('deliveryDate').value = item.deliveryDate || '';
+      if (!item) {
+        alert("Could not find matching saved entry.");
+        return;
+      }
 
-  updateMessage();
+      // ✅ Load values into form
+      document.getElementById('phone').value = item.phone || '';
+      document.getElementById('orderNumber').value = item.orderNumber || '';
+      document.getElementById('customerAddress').value = item.customerAddress || '';
+      document.getElementById('etaDropdown').value = item.etaValue || '';
+      document.getElementById('siteContact').value = item.siteContact || '';
+      document.getElementById('messageTemplate').value = item.templateSid || '';
+      document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
+      document.getElementById('vehicleReg').value = item.vehicleReg || '';
+      document.getElementById('deliveryDate').value = item.deliveryDate || '';
 
-  // ✅ Mark this entry as used if not already
-  const index = saved.findIndex(entry =>
-    entry.orderNumber === orderNumber &&
-    clean(entry.phone) === cleanedPhone
-  );
-
-  if (index !== -1 && !saved[index].used) {
-    saved[index].used = true;
-    localStorage.setItem('savedLater', JSON.stringify(saved));
-    displaySavedLater();
-  }
-
-  // ✅ Set global flag so sendMessage() knows this was loaded
-  loadedFromSaved = true;
+      updateMessage();
+      loadedFromSaved = true;
+    })
+    .catch(err => {
+      console.error("❌ Error loading saved entry from Firebase:", err);
+      alert("Error loading saved entry.");
+    });
 }
+
 
 
 function deleteSavedEntry(entryToDelete) {
-  let saved = JSON.parse(localStorage.getItem('savedLater')) || [];
+  firebase.database().ref('savedLater').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) return;
 
-  // Only remove the entry with the matching unique ID
-  saved = saved.filter(entry => entry.id !== entryToDelete.id);
+      // Find the Firebase key by matching order + phone
+      const clean = str => str?.replace(/\s+/g, '').replace(/^0/, '+44') || '';
+      const cleanedPhone = clean(entryToDelete.phone);
+      const cleanedOrder = entryToDelete.orderNumber?.trim().toUpperCase();
 
-  localStorage.setItem('savedLater', JSON.stringify(saved));
-  displaySavedLater();
+      const matchKey = Object.entries(data).find(([key, item]) =>
+        item.orderNumber?.trim().toUpperCase() === cleanedOrder &&
+        clean(item.phone) === cleanedPhone
+      )?.[0];
+
+      if (!matchKey) return;
+
+      return firebase.database().ref(`savedLater/${matchKey}`).remove();
+    })
+    .then(() => {
+      console.log("🗑️ Entry deleted");
+      displaySavedLater();
+    })
+    .catch(err => {
+      console.error("❌ Failed to delete entry:", err);
+      alert("Could not delete saved entry.");
+    });
 }
+
 
 
 
 
 function clearSavedLater() {
   if (confirm("Are you sure you want to clear all saved entries?")) {
-    localStorage.removeItem('savedLater');
-    displaySavedLater();
+    firebase.database().ref('savedLater').remove()
+      .then(() => {
+        console.log("✅ All saved orders cleared from Firebase");
+        displaySavedLater(); // refresh UI
+      })
+      .catch(error => {
+        console.error("❌ Error clearing saved orders from Firebase:", error);
+        alert("Failed to clear saved entries. Please check your internet or Firebase rules.");
+      });
   }
 }
+
+setInterval(pollStatusUpdates, 5000);
 
 /*function checkPassword() {
   const correctPassword = "timber123"; // 🔑 Change to your real password

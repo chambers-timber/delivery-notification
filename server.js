@@ -31,42 +31,34 @@ const messageStatusMap = {}; // 💡 Track SID → status
 const orderConfirmationTemplateSid = 'HXb930591ce15ddf1213379a48a92349e0';
 
 // THIS SECTION IS NEW FOR MIGRATING TO SERVER STORAGE
-// New memory stores
 const savedDrafts = [];
 const orderHistory = [];
 
-// API: Save sent message to history 
 app.post('/save-history', (req, res) => {
   const historyItem = req.body;
   orderHistory.unshift(historyItem);
   res.json({ success: true });
 });
 
-// API: Get all history
 app.get('/history', (req, res) => {
   res.json(orderHistory);
 });
 
-// API: Save draft
 app.post('/save-draft', (req, res) => {
   const draft = req.body;
   savedDrafts.unshift(draft);
   res.json({ success: true });
 });
 
-// API: Get all drafts
 app.get('/drafts', (req, res) => {
   res.json(savedDrafts);
 });
 
-// API: Clear all drafts
 app.delete('/drafts', (req, res) => {
   savedDrafts.length = 0;
   res.json({ success: true });
 });
-// THIS SECTION IS NEW FOR MIGRATING TO SERVER STORAGE
 
-// ✅ Format UK phone numbers
 function formatPhoneNumber(phone) {
   phone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
   if (phone.startsWith('0')) return '+44' + phone.slice(1);
@@ -75,7 +67,6 @@ function formatPhoneNumber(phone) {
   return phone;
 }
 
-// ✅ Format delivery date as "Thursday 9th May 25"
 function formatUKDate(dateStr) {
   const date = new Date(dateStr);
   if (isNaN(date)) return dateStr;
@@ -92,14 +83,12 @@ function formatUKDate(dateStr) {
   return `${dayName} ${dayNum}${suffix} ${monthName} ${year}`;
 }
 
-// ✅ Send WhatsApp Message
 app.post('/send-message', async (req, res) => {
   try {
     console.log('📩 Incoming send-message POST body:', req.body);
 
     let { phone, orderNumber, eta, deliveryDate, customerAddress, siteContact, vehicleReg, templateSid } = req.body;
     let vehicleType = vehicleReg;
-
 
     phone = formatPhoneNumber(phone);
 
@@ -132,7 +121,7 @@ app.post('/send-message', async (req, res) => {
         '3': customerAddress || 'N/A',
         '4': siteContact || 'N/A',
         '5': mapImageUrl,
-        '6': vehicleType || 'N/A' // NEW VARIABLE FOR VEHICLE TYPE
+        '6': vehicleType || 'N/A'
       });
     }
 
@@ -160,7 +149,6 @@ app.post('/send-message', async (req, res) => {
   }
 });
 
-// ✅ Receive incoming WhatsApp messages
 app.post('/incoming-whatsapp', (req, res) => {
   const from = req.body.From || '';
   const body = req.body.Body || '';
@@ -180,7 +168,6 @@ app.post('/incoming-whatsapp', (req, res) => {
   res.send('<Response></Response>');
 });
 
-// ✅ Track delivery status updates
 app.post('/status-callback', (req, res) => {
   const messageSid = req.body.MessageSid || 'unknown';
   const messageStatus = req.body.MessageStatus || 'unknown';
@@ -191,26 +178,54 @@ app.post('/status-callback', (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ Expose message status for frontend polling
-app.get('/message-status/:sid', (req, res) => {
+// ✅ Rewritten to fetch real-time status from Twilio
+app.get('/message-status/:sid', async (req, res) => {
   const sid = req.params.sid;
-  const status = messageStatusMap[sid] || 'unknown';
-  res.json({ sid, status });
+
+  try {
+    const message = await client.messages(sid).fetch();
+    console.log(`📩 Fetched status from Twilio: ${sid} → ${message.status}`);
+    res.json({ sid: message.sid, status: message.status });
+  } catch (err) {
+    console.error(`❌ Failed to fetch status from Twilio for ${sid}:`, err.message);
+    res.status(500).json({ sid, status: 'unknown', error: 'Twilio fetch failed' });
+  }
 });
 
-// ✅ Inbox route
 app.get('/inbox', (req, res) => {
   res.json(inboxMessages);
 });
 
-// ✅ Static files
+app.post('/reply', async (req, res) => {
+  const { to, message } = req.body;
+
+  if (!to || !message) {
+    return res.status(400).json({ success: false, error: "Missing 'to' or 'message'" });
+  }
+
+  const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+
+  try {
+    const sent = await client.messages.create({
+      from: whatsappNumber,
+      to: formattedTo,
+      body: message
+    });
+
+    console.log('✅ Freeform reply sent:', sent.sid);
+    res.json({ success: true, sid: sent.sid });
+  } catch (error) {
+    console.error('❌ Error sending freeform reply:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ✅ Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
@@ -220,6 +235,6 @@ app.listen(PORT, () => {
   } else {
     throw err;
   }
-});  
+});
 
 //fully working 06/05/25
