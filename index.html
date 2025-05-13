@@ -76,8 +76,7 @@
             margin-bottom: 5px;
             border-left: 4px solid black;
             font-size: 13px;
-            font-weight: bold;
-            text-align: center;
+            text-align: left;
             border-radius: 5px;
             transition: background 0.3s;
             color: black;
@@ -276,12 +275,7 @@
   
       <!-- SPLIT PANEL: History + Form -->
       <div style="display: flex; gap: 30px;">
-        <!-- ORDER HISTORY -->
-        <div class="history" style="flex: 1; max-width: 300px;">
-          <h3>📜 Order History</h3>
-          <ul id="history-list" class="history-list" style="max-height: 80vh; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;"></ul>
-        </div>
-  
+        
         <!-- NOTIFICATION FORM -->
         <div class="container" style="flex: 2;">
           <h2 style="margin-top: 0;">📩 WhatsApp Delivery Notification</h2>
@@ -391,129 +385,155 @@
 
    <!-- ************************************************************************************************ -->
    <!-- RIGHT SIDE: Saved for Later + Inbox + Chat + Reply -->
-<div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 40px; overflow-y: auto;">
-
-  <!-- Saved for Later -->
-  <h3 style="margin-top: 20; margin-bottom: 10px;">💾 Saved Orders</h3>
-  <div id="saved-for-later" style="
-  background-color: #ffffff;
-  border: 1px solid #ccc;
-  border-radius: 2px;
-  padding: 1px;
-  font-size: 12px;
-  max-height: 725px;
-  overflow-y: auto;
-  overflow-x: hidden; /* ✅ Add this line to fix horizontal scrollbar */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  margin-bottom: 10px;
-">
-  <div style="color: gray; font-style: italic;">No saved entries yet.</div>
-</div>
-
-<div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
-  <button onclick="printSavedLater()" style="
-    background-color: green;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    font-size: 13px;
-    border-radius: 5px;
-    cursor: pointer;
-  ">
-    🖨️ Print
-  </button>
-  <button onclick="clearSavedLater()" style="
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    font-size: 13px;
-    border-radius: 5px;
-    cursor: pointer;
-  ">
-    🗑️ Clear All
-  </button>
-</div>
-
-<div id="print-area" style="display:none;"></div>
 
 
+<!-- Right Panel with Tabbed Sections -->
+<!-- RIGHT PANEL -->
+<div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 20px; overflow: hidden;">
 
+  <!-- Tabs Header -->
+  <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+    <button onclick="showTab('savedTab')">💾 Saved Orders</button>
+    <button onclick="showTab('historyTab')">📜 Order History</button>
+    <button onclick="showTab('inboxTab')">💬 Inbox & Chat</button>
+  </div>
 
-  <!-- Inbox ******************************     THIS SECTION HAS BEEN TEMP DEACTIVATED        **************************************
-  <h3 style="margin-top: 0; margin-bottom: 10px;">📥 Inbox</h3>
+  <!-- SAVED ORDERS TAB -->
+  <div id="savedTab" class="tab-section" style="flex: 1; overflow-y: auto;">
+    <h3>💾 Saved Orders</h3>
+    <div id="saved-for-later" style="max-height: 635px; overflow-y: auto;">Loading...</div>
+    <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button onclick="printSavedLater()" style="background-color: green; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;">🖨️ Print</button>
+      <button onclick="clearSavedLater()" style="background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;">🗑️ Clear All</button>
+    </div>
+  </div>
+
+  <!-- ORDER HISTORY TAB -->
+  <div id="historyTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
+    <h3>📜 Order History</h3>
+    <ul id="history-list" class="history-list" style="max-height: 670px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f9f9f9; list-style-type: none;"></ul>
+  </div>
+
+  <!-- Inbox and Chat Tab -->
+<div id="inboxTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
+
+  <!-- Inbox -->
+  <h3 style="margin-bottom: 10px;">📥 Inbox</h3>
   <div id="inbox" style="
     background-color: #ffffff;
     border: 1px solid #ccc;
     border-radius: 6px;
-    padding: 15px;
+    padding: 10px;
     font-size: 13px;
-    max-height: 140px;
+    max-height: 150px;
     overflow-y: auto;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    margin-bottom: 5px;
-  ">
-    <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447894802472')">
-      <strong>+44 7894 802472</strong> – Can you confirm delivery is on track?
-    </div>
-    <div class="inbox-item" style="padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="openChat('+447895123456')">
-      <strong>+44 7895 123456</strong> – Site contact is unavailable...
-    </div>
-    <div class="inbox-item" style="padding: 6px 0; cursor: pointer;" onclick="openChat('+447896654321')">
-      <strong>+44 7896 654321</strong> – Thanks for the update, ETA...
-    </div>
-  </div>
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  "></div>
 
-  <!-- Chat Thread 
+  <!-- Chat Thread -->
   <h3 style="margin-bottom: 10px;">💬 Message Chat</h3>
   <div id="chat-thread" style="
     background-color: #ffffff;
     border: 1px solid #ccc;
     border-radius: 6px;
-    padding: 15px;
+    padding: 10px;
     font-size: 13px;
-    max-height: 260px;
+    height: 150px;
     overflow-y: auto;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  "></div> 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 10px;
+  "></div>
 
-  <!-- Reply Box 
-  <div style="
-    margin-top: 15px;
-    background-color: #ffffff;
+  <!-- Reply Input -->
+  <textarea id="replyMessage" placeholder="Type your reply here..." style="
+    width: 100%;
+    height: 80px;
+    font-size: 13px;
+    padding: 10px;
     border: 1px solid #ccc;
-    border-radius: 6px;
-    padding: 15px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  ">
-    <textarea id="replyMessage" placeholder="Type your reply here..." style="
-      width: 100%;
-      height: 80px;
-      font-size: 13px;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      resize: vertical;
-    "></textarea>
+    border-radius: 4px;
+    resize: vertical;
+    margin-bottom: 10px;
+  "></textarea>
 
-    <button onclick="addReply()" style="
-      margin-top: 10px;
-      padding: 8px 16px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 13px;
-      cursor: pointer;
-    ">
-      Send Reply
-    </button>
-  </div>
-</div> <!-- ✅ END RIGHT SIDE ******************************     THIS SECTION HAS BEEN TEMP DEACTIVATED        **************************************-->
+  <button onclick="addReply()" style="
+    width: 100%;
+    background-color: #007bff;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+  ">Send Reply</button>
+</div>
 
 
-  
-  <!-- Scripts -->
+</div> <!-- ✅ closes the right panel wrapper -->
+
+ 
+
+<script>
+
+function showTab(id) {
+  document.querySelectorAll('.tab-section').forEach(tab => tab.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+}
+
+
+  function showTab(tabId) {
+    document.querySelectorAll('.tab-section').forEach(tab => tab.style.display = 'none');
+    document.getElementById(tabId).style.display = 'block';
+  }
+</script>
+
+
+
+<script>
+  function loadInbox() {
+    fetch('https://delivery-notification.onrender.com/inbox')
+      .then(res => res.json())
+      .then(data => {
+        const inboxDiv = document.getElementById('inbox');
+        inboxDiv.innerHTML = '';
+
+        if (data.length === 0) {
+          inboxDiv.innerHTML = '<div style="color: gray; font-style: italic;">No incoming messages yet.</div>';
+          return;
+        }
+
+        data.forEach(msg => {
+          const div = document.createElement('div');
+          div.className = 'inbox-item';
+          div.style.padding = '6px 0';
+          div.style.borderBottom = '1px solid #eee';
+          div.style.cursor = 'pointer';
+          div.innerHTML = `<strong>${msg.number}</strong> – ${msg.message}`;
+          div.onclick = () => openChat(msg.number, msg.message);
+          inboxDiv.appendChild(div);
+        });
+      })
+      .catch(err => console.error('❌ Failed to load inbox:', err));
+  }
+
+  function openChat(number, message) {
+    const chatThread = document.getElementById('chat-thread');
+    chatThread.innerHTML = ''; // Clear previous messages
+
+    const msg = document.createElement('div');
+    msg.innerHTML = `<strong style="color: #28a745;">📞 ${number}</strong><br>${message}`;
+    msg.style.marginBottom = '10px';
+    chatThread.appendChild(msg);
+  }
+
+  setInterval(loadInbox, 5000); // Refresh inbox every 5 seconds
+  window.onload = () => {
+    loadInbox(); // Load on page open
+  };
+</script>
+
+
   <script>
     function addReply() {
       const msg = document.getElementById('replyMessage').value.trim();
@@ -613,60 +633,26 @@ function updateMessage() {
 
   let fullMessage = "";
 
-  if (selectedTemplate === "Ready_for_collection") {
-    fullMessage = orderNumber ? `ORDER COLLECTION\nOrder No. ${orderNumber}\n\n` : "ORDER COLLECTION\n\n";
-    fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
-    document.getElementById('message').value = fullMessage;
-    return;
-  }
-
   if (orderNumber) {
     fullMessage += `PO: ${orderNumber}\n\n`;
   }
 
   switch (selectedTemplate) {
-    case "On_its_way_1st":
-      fullMessage += `HXe409d244b93e3dd70144789d2e797664.\n\n`;
+    case "HXe409d244b93e3dd70144789d2e797664": // DELIVERY
+      fullMessage += `We are pleased to confirm that your order is now on its way.\n\n`;
       break;
-    case "Out_for_delivery_2nd":
-      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 1 stop ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-      break;
-    case "Out_for_delivery_3rd":
-      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 2 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-      break;
-    case "Out_for_delivery_4th":
-      fullMessage += `We are pleased to confirm that your order is now on its way. Our driver has 3 stops ahead of you but will be with you soon after. He will call upon arrival.\n\n`;
-      break;
-    case "First_drop_confirmation":
-      fullMessage += `We are pleased to confirm that your order has been booked in with our transport team for a First Drop, please see below for your delivery details.\n\n`;
-      break;
-    case "On_its_way_12_2":
-      fullMessage += `We are pleased to confirm that your order is now on its way. Approx ETA 12-2pm. Our driver will call you on arrival.\n\n`;
-      break;
-    case "Delivered":
-      fullMessage += `We are pleased to confirm that your order has now been successfully delivered.\n\n`;
-      break;
-    case "Order_Confirmation_Direct":
-      fullMessage += `Your order is now booked in with our transport team, see below for delivery details, you will receive a delivery notification when your order is on its way.\n\n`;
-      break;
-    case "Order_Confirmation":
+    case "HXb930591ce15ddf1213379a48a92349e0": // CONFIRMATION
       fullMessage += `Thank you for shopping with us.\n\nWe are pleased to confirm that your order is now booked in with our transport team, please see below for details. You will receive a delivery notification when your order is on its way.\n\n`;
       break;
-    case "Order_Status_O4D":
-      fullMessage += `Order Status: Out for delivery\n\n`;
-      break;
-    case "Order_Status_Picking":
-      fullMessage += `Order Status: Loading\n\n`;
-      break;
-    case "HIAB_Delivery":
-      fullMessage += `DELIVERY CONFIRMATION\n\nOrder Status: Out for delivery\nVehicle: Lorry - 18 Ton - Rigid\nDriver: Ricky\n\n`;
-      break;
+    case "HXea334a5a136b808854eab2755556dd29": // COLLECTION
+      fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
+      document.getElementById('message').value = fullMessage;
+      return;
     default:
       fullMessage += `[Select a message template]\n\n`;
       break;
   }
 
-  // ✅ Insert correct formatted delivery date
   if (deliveryDateInput) {
     const formattedDate = formatUKDate(deliveryDateInput);
     fullMessage += `📅 Delivery Date: ${formattedDate}\n\n`;
@@ -684,6 +670,7 @@ function updateMessage() {
 
   document.getElementById('message').value = fullMessage;
 }
+
 
 
 
@@ -757,6 +744,10 @@ function saveHistory(orderNumber, templateLabel, driverName, driverPhone, custom
         formattedDeliveryDate = 'TBC';
     }
 
+    // 🕒 Add current time
+    const now = new Date();
+    const timeSent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
     const historyItem = {
         orderNumber,
         templateLabel,
@@ -766,12 +757,14 @@ function saveHistory(orderNumber, templateLabel, driverName, driverPhone, custom
         siteContact,
         deliveryDate: formattedDeliveryDate,
         status,
-        messageSid
+        messageSid,
+        timeSent  // ✅ added timestamp
     };
 
     savedHistory.unshift(historyItem);
     localStorage.setItem('messageHistory', JSON.stringify(savedHistory));
 }
+
 
 
 
@@ -783,10 +776,43 @@ function loadHistory() {
 
     savedHistory.forEach(item => {
         const entry = document.createElement('li');
-        entry.innerText = `Order: ${item.orderNumber} | ${item.templateLabel} | ${item.customerAddress || 'N/A'} | ${item.siteContact || 'N/A'} | ${item.deliveryDate}`;
+
+        // Handle status display
+        let status = item.status || '';
+        let statusIcon = '';
+        let statusColor = 'gray';
+
+        if (status.toLowerCase() === 'sent') {
+            statusIcon = '📨';
+            statusColor = 'blue';
+        } else if (status.toLowerCase() === 'delivered') {
+            statusIcon = '✅';
+            statusColor = 'green';
+        } else if (status.toLowerCase() === 'read') {
+            statusIcon = '✅✅';
+            statusColor = 'black';
+        }
+
+        // Driver and time sent
+        const driver = item.driverName || 'N/A';
+        const time = item.timeSent || 'N/A';
+
+        // Build final entry
+        entry.innerHTML = `
+            <span style="color: ${statusColor}; margin-right: 5px;">${statusIcon}</span>
+            ${item.orderNumber}  |
+            ${item.templateLabel} |
+            ${item.customerAddress || 'N/A'} |
+            ${item.siteContact || 'N/A'} |
+            ${item.deliveryDate} |
+            <strong>Driver:</strong> ${driver} |
+            <strong>Time:</strong> ${time}
+        `;
+
         historyList.appendChild(entry);
     });
 }
+
 
 
 // Updated sendMessage() function
@@ -870,7 +896,7 @@ function sendMessage() {
         saved = saved.filter(entry => entry.orderNumber !== orderNumber);
 
         // Add the new entry
-        saved.unshift({
+       saved.unshift({
           phone,
           orderNumber,
           customerAddress,
@@ -882,8 +908,9 @@ function sendMessage() {
           driverPhone,
           vehicleReg,
           deliveryDate,
-          used: !isOrderConfirmation // false for Order Confirmation, true for Delivery Confirmation
+          used: false // Always reset status to false on any re-send
         });
+
 
         localStorage.setItem('savedLater', JSON.stringify(saved));
         displaySavedLater(); // refresh Saved Orders panel
@@ -1024,7 +1051,7 @@ function displaySavedLater() {
     info.style.textOverflow = 'ellipsis';
     info.style.whiteSpace = 'nowrap';
     info.style.cursor = 'pointer';
-    if (item.used) info.style.color = 'red';
+    //if (item.used) info.style.color = 'red';
     info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
 
     // Status (middle)
