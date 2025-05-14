@@ -293,7 +293,7 @@
 <div style="display: flex; height: 100vh; overflow: hidden;">
 
     <!-- LEFT SIDE: Main Panel -->
-    <div style="width: 30%; min-width: 720px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
+    <div style="width: 30%; min-width: 700px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
       <!-- Success / Status Messages -->
       <div id="loading" class="hidden">Sending... ⏳</div>
       <p id="response" class="message"></p>
@@ -774,7 +774,8 @@ window.onload = () => {
 
 
 
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', status = 'Sent', messageSid = '') {
+function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', eta = '', status = 'Sent', messageSid = '') {
+
   let formattedDeliveryDate = 'TBC';
   if (deliveryDate) {
     const dateObj = new Date(deliveryDate);
@@ -797,10 +798,12 @@ function saveHistory(orderNumber, templateLabel, driverName, driverPhone, custom
   customerAddress: customerAddress || '',
   siteContact: siteContact || '',
   deliveryDate: formattedDeliveryDate || '',
+  eta: eta || '',
   status: status || '',
   messageSid: messageSid || '',
   timeSent
 };
+
 
 
   // ✅ Ensure it's saving to the correct path
@@ -852,7 +855,8 @@ function loadHistory() {
         entry.innerHTML = `
           <span style="color: ${color}; margin-right: 5px;">${icon}</span>
           ${item.orderNumber} |
-          ${item.templateLabel} |
+          <strong>ETA:</strong> ${item.eta || 'TBC'} |
+          <strong>${item.templateLabel}</strong> |
           ${item.customerAddress || 'N/A'} |
           ${item.siteContact || 'N/A'} |
           ${item.deliveryDate} |
@@ -868,7 +872,6 @@ function loadHistory() {
       historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
     });
 }
-
 
 
 // Updated sendMessage() function
@@ -938,7 +941,8 @@ function sendMessage() {
       const sid = data.sid || '';
 
       // ✅ Save message history to Firebase
-      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, 'Sent', sid);
+      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', sid);
+
 
       // ✅ Save order to Firebase if it wasn’t loaded from a saved entry
       if (!loadedFromSaved) {
