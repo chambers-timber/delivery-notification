@@ -293,7 +293,7 @@
 <div style="display: flex; height: 100vh; overflow: hidden;">
 
     <!-- LEFT SIDE: Main Panel -->
-    <div style="width: 50%; min-width: 700px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
+    <div style="width: 30%; min-width: 700px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
       <!-- Success / Status Messages -->
       <div id="loading" class="hidden">Sending... ⏳</div>
       <p id="response" class="message"></p>
@@ -415,7 +415,7 @@
 
 <!-- Right Panel with Tabbed Sections -->
 <!-- RIGHT PANEL -->
-<div style="width: 50%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 20px; overflow: hidden;">
+<div style="width: 70%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 20px; overflow: hidden;">
 
   <!-- Tabs Header -->
   <div style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -588,6 +588,8 @@ function showTab(id) {
     // ✅ Poll for message status updates every 5 seconds
 // ✅ Poll for message status updates every 5 seconds
 setInterval(() => {
+  let updated = false;
+
   firebase.database().ref('messageHistory').once('value')
     .then(snapshot => {
       const history = snapshot.val() || {};
@@ -602,12 +604,22 @@ setInterval(() => {
             if (data.status && data.status !== entry.status) {
               console.log(`🔄 SID ${entry.messageSid} → ${data.status}`);
               firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
+              updated = true;
             }
           })
           .catch(err => console.warn('❌ Error checking status:', err));
       });
+
+      // Delay UI refresh slightly to ensure updates have time to apply
+      setTimeout(() => {
+        if (updated) {
+          loadHistory();
+          displaySavedLater();
+        }
+      }, 1500);
     });
 }, 5000);
+
 
 
 
@@ -1360,7 +1372,6 @@ function clearSavedLater() {
   }
 }
 
-setInterval(pollStatusUpdates, 5000);
 
 /*function checkPassword() {
   const correctPassword = "timber123"; // 🔑 Change to your real password
