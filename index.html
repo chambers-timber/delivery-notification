@@ -585,9 +585,10 @@ function showTab(id) {
       msg.style.marginBottom = '10px';
       chatThread.appendChild(msg);
     }
-    // ✅ Poll for message status updates every 5 seconds
-// ✅ Poll for message status updates every 5 seconds
-setInterval(() => {
+
+
+ // ✅ Poll for message status updates every 5 seconds
+ /* setInterval(() => {
   let updated = false;
 
   firebase.database().ref('messageHistory').once('value')
@@ -618,8 +619,7 @@ setInterval(() => {
         }
       }, 1500);
     });
-}, 5000);
-
+}, 5000); */
 
 
 
@@ -747,13 +747,13 @@ Driver: ${item.driverName} - ${item.driverPhone}
 
 // ✅ Load history when the page loads
 window.onload = () => {
+  loadInbox();
   loadHistory();
   displaySavedLater();
-
-  // ✅ Set delivery date to today on page load
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('deliveryDate').value = today;
+  setupLiveStatusUpdates(); // 🔁 Start live updates
+  document.getElementById('deliveryDate').value = new Date().toISOString().split('T')[0];
 };
+
 
 
 
@@ -1020,10 +1020,22 @@ function pollStatusUpdates() {
     .catch(err => console.error("❌ Failed to poll message history:", err));
 }
 
+function setupLiveStatusUpdates() {
+  firebase.database().ref('messageHistory').on('child_changed', snapshot => {
+    const updatedEntry = snapshot.val();
+    console.log(`🔁 Live update: ${updatedEntry.orderNumber} status changed to ${updatedEntry.status}`);
 
-
-
-
+    // Refresh UI to reflect the change
+    loadHistory();
+    displaySavedLater();
+  });
+}
+firebase.database().ref('messageHistory').on('child_added', snapshot => {
+  const newEntry = snapshot.val();
+  console.log(`📥 New message added: ${newEntry.orderNumber}`);
+  loadHistory();
+  displaySavedLater();
+});
 
 
 function saveForLater() {
@@ -1217,64 +1229,71 @@ function displaySavedLater() {
 
 
 function printSavedLater() {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-
-  if (saved.length === 0) {
-    alert("No saved items to print.");
-    return;
-  }
-
-  // 🔼 Sort by delivery date (soonest first)
-  saved.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
-
-  // Create printable content
-  let html = `
-    <div id="print-area">
-      <h2>Daily Delivery Check List</h2>
-      <ul style="font-family: Arial; font-size: 14px;">
-  `;
-
-  saved.forEach(item => {
-    const order = item.orderNumber || 'N/A';
-    const address = item.customerAddress || 'N/A';
-    const contact = item.siteContact || 'N/A';
-
-    let date = 'N/A';
-    if (item.deliveryDate) {
-      const dateObj = new Date(item.deliveryDate);
-      if (!isNaN(dateObj)) {
-        const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-        const dayNum = dateObj.getDate();
-        const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-        const year = dateObj.getFullYear();
-        date = `${day} ${dayNum} ${month} ${year}`;
+  firebase.database().ref('savedLater').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        alert("No saved items to print.");
+        return;
       }
-    }
 
-    html += `
-  <li style="margin-bottom: 4px; line-height: 1.6;">
-    Order: ${order} | ${address} | ${contact} | ${date}
-  </li>
-  <hr style="border: 1px solid black; margin: 10px 0;">
-`;
+      const saved = Object.values(data);
+      if (saved.length === 0) {
+        alert("No saved items to print.");
+        return;
+      }
 
+      saved.sort((a, b) => new Date(a.deliveryDate || 0) - new Date(b.deliveryDate || 0));
 
-  });
+      let html = `
+        <div id="print-area">
+          <h2>Daily Delivery Checklist</h2>
+          <ul style="font-family: Arial; font-size: 14px;">
+      `;
 
-  html += `</ul></div>`;
+      saved.forEach(item => {
+        const order = item.orderNumber || 'N/A';
+        const address = item.customerAddress || 'N/A';
+        const contact = item.siteContact || 'N/A';
 
-  // Temporarily overwrite body for printing
-  const originalBody = document.body.innerHTML;
-  document.body.innerHTML = html;
+        let date = 'N/A';
+        if (item.deliveryDate) {
+          const dateObj = new Date(item.deliveryDate);
+          if (!isNaN(dateObj)) {
+            const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
+            const dayNum = dateObj.getDate();
+            const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+            const year = dateObj.getFullYear();
+            date = `${day} ${dayNum} ${month} ${year}`;
+          }
+        }
 
-  window.print();
+        html += `
+          <li style="margin-bottom: 4px; line-height: 1.6;">
+            Order: ${order} | ${address} | ${contact} | ${date}
+          </li>
+          <hr style="border: 1px solid black; margin: 10px 0;">
+        `;
+      });
 
-  // Restore original body after print
-  setTimeout(() => {
-    document.body.innerHTML = originalBody;
-    location.reload(); // Refresh to reset event listeners etc.
-  }, 500);
+      html += `</ul></div>`;
+
+      const originalBody = document.body.innerHTML;
+      document.body.innerHTML = html;
+
+      window.print();
+
+      setTimeout(() => {
+        document.body.innerHTML = originalBody;
+        location.reload(); // Restore UI and reset scripts
+      }, 500);
+    })
+    .catch(error => {
+      console.error("❌ Firebase print error:", error);
+      alert("Failed to print saved entries.");
+    });
 }
+
 
 function loadSavedEntry(orderNumber, phone) {
   const container = document.getElementById('saved-for-later');
