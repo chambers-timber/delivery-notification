@@ -570,9 +570,13 @@ function showTab(id) {
   }
 
   setInterval(loadInbox, 5000); // Refresh inbox every 5 seconds
+
   window.onload = () => {
-    loadInbox(); // Load on page open
-  };
+  loadInbox();
+  document.getElementById('deliveryDate').value = getDefaultDeliveryDate(); // ✅ Fix applied here
+};
+
+
 </script>
 
 
@@ -727,6 +731,7 @@ function getDefaultDeliveryDate() {
   return now.toISOString().split('T')[0];
 }
 
+
 function clearForm() {
   document.getElementById('phone').value = "07894 802 472";
   document.getElementById('orderNumber').value = "";
@@ -749,32 +754,26 @@ function clearForm() {
 
 // Function to load message history from localStorage 
 function displayHistory() {
-    const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-    const historyList = document.getElementById('history-list'); 
-    historyList.innerHTML = '';
+  const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
+  const historyList = document.getElementById('history-list'); 
+  historyList.innerHTML = '';
 
-    savedHistory.forEach(item => {
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'history-entry'; // use this for styling if needed
+  
 
-        entryDiv.innerText = `Order: ${item.orderNumber}
+  savedHistory.forEach(item => {
+    const entryDiv = document.createElement('div');
+    entryDiv.className = 'history-entry'; // use this for styling if needed
+
+    entryDiv.innerText = `Order: ${item.orderNumber}
 Template: ${item.templateLabel}
 Driver: ${item.driverName} - ${item.driverPhone}
 📅 ${item.dateTime}, ${item.status}`;
 
-        historyList.appendChild(entryDiv);
-    });
+    historyList.prepend(entryDiv);
+
+  });
 }
 
-
-// ✅ Load history when the page loads
-window.onload = () => {
-  loadInbox();
-  loadHistory();
-  displaySavedLater();
-  setupLiveStatusUpdates(); // 🔁 Start live updates
-  document.getElementById('deliveryDate').value = getDefaultDeliveryDate(); // ✅ smart default
-};
 
 
 
@@ -871,7 +870,7 @@ function loadHistory() {
           <strong>Time:</strong> ${time}
         `;
 
-        historyList.appendChild(entry);
+        historyList.prepend(entry);
       });
     })
     .catch(err => {
@@ -1242,7 +1241,6 @@ function displaySavedLater() {
 
             const order = item.orderNumber || 'N/A';
             const address = item.customerAddress || 'No Address';
-            const driver = item.driverName || 'N/A';
             const contact = item.siteContact || 'No Contact';
 
             let formattedDate = 'TBC';
@@ -1267,7 +1265,7 @@ function displaySavedLater() {
             }
 
             const info = document.createElement('div');
-            info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${contact} | ${driver} | ${formattedDate}`;
+            info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${contact} | ${formattedDate}`;
             info.style.flex = '1';
             info.style.overflow = 'hidden';
             info.style.textOverflow = 'ellipsis';
@@ -1356,7 +1354,7 @@ function printSavedLater() {
 
       let html = `
         <div id="print-area">
-          <h2>Daily Delivery Checklist</h2>
+          <h2>Deliveries booked in with transport</h2>
           <ul style="font-family: Arial; font-size: 12px;">
       `;
 
