@@ -774,9 +774,6 @@ Driver: ${item.driverName} - ${item.driverPhone}
   });
 }
 
-
-
-
 function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', eta = '', status = 'Sent', messageSid = '') {
 
   let formattedDeliveryDate = 'TBC';
@@ -797,7 +794,6 @@ function saveHistory(orderNumber, templateLabel, driverName, driverPhone, custom
   orderNumber: orderNumber.trim().toUpperCase(),
   templateLabel: templateLabel || '',
   driverName: driverName || '',
-  driverPhone: driverPhone || '',
   customerAddress: customerAddress || '',
   siteContact: siteContact || '',
   deliveryDate: formattedDeliveryDate || '',
@@ -805,9 +801,13 @@ function saveHistory(orderNumber, templateLabel, driverName, driverPhone, custom
   status: status || '',
   messageSid: messageSid || '',
   timeSent,
-  timestamp: Date.now() // ✅ This line enables accurate sorting
+  timestamp: Date.now()
 };
 
+// ✅ Only include driverPhone if it exists
+if (driverPhone) {
+  historyItem.driverPhone = driverPhone;
+}
 
 
 
@@ -826,56 +826,91 @@ function loadHistory() {
   const historyList = document.getElementById('history-list');
   historyList.innerHTML = 'Loading...';
 
-  firebase.database().ref('messageHistory').once('value') // ✅ fixed path
+  firebase.database().ref('messageHistory').once('value')
     .then(snapshot => {
       const data = snapshot.val();
-      const items = data ? Object.values(data) : [];
-
-      if (items.length === 0) {
+      if (!data) {
         historyList.innerHTML = '<li style="color: gray;">No history yet.</li>';
         return;
       }
 
-      historyList.innerHTML = ''; // Clear list
+      historyList.innerHTML = '';
+      const items = Object.entries(data).map(([firebaseId, entry]) => ({ ...entry, firebaseId }));
 
       items.sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0));
 
-
       items.forEach(item => {
         const entry = document.createElement('li');
+        entry.style.display = 'flex';
+        entry.style.alignItems = 'center';
+        entry.style.justifyContent = 'space-between';
+        entry.style.gap = '10px';
+        entry.style.fontSize = '13px';
 
         let status = item.status || '';
         let icon = '⏳', color = 'gray';
-
-        if (status.toLowerCase() === 'sent') {
-          icon = '📨'; color = 'blue';
-        } else if (status.toLowerCase() === 'delivered') {
-          icon = '✅'; color = 'green';
-        } else if (status.toLowerCase() === 'read') {
-          icon = '✅✅'; color = 'black';
-        }
+        if (status.toLowerCase() === 'sent') { icon = '📨'; color = 'blue'; }
+        else if (status.toLowerCase() === 'delivered') { icon = '✅'; color = 'green'; }
+        else if (status.toLowerCase() === 'read') { icon = '✅✅'; color = 'black'; }
 
         const driver = item.driverName || 'N/A';
         const time = item.timeSent || 'N/A';
 
-        entry.innerHTML = `
+        // Left: Info
+        const info = document.createElement('div');
+        info.style.flex = '1';
+        info.style.overflow = 'hidden';
+        info.style.textOverflow = 'ellipsis';
+        info.style.whiteSpace = 'nowrap';
+        info.innerHTML = `
           <span style="color: ${color}; margin-right: 5px;">${icon}</span>
-          ${item.orderNumber} |
-          <strong>ETA:</strong> ${item.eta || 'TBC'} |
-          <strong>${item.templateLabel}</strong> |
+          <strong>${item.orderNumber}</strong> |
+          ETA: ${item.eta || 'TBC'} |
+          ${item.templateLabel} |
           ${item.customerAddress || 'N/A'} |
           ${item.siteContact || 'N/A'} |
           ${item.deliveryDate} |
-          <strong>Driver:</strong> ${driver} |
-          <strong>Time:</strong> ${time}
+          Driver: ${driver} |
+          Time: ${time}
         `;
 
+        // Right: Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '🗑️';
+        deleteBtn.style.background = 'transparent';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.fontSize = '12px';
+        deleteBtn.style.flex = '0';
+        deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
+
+        entry.appendChild(info);
+        entry.appendChild(deleteBtn);
         historyList.prepend(entry);
       });
     })
     .catch(err => {
       console.error("❌ Failed to load history:", err);
       historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
+    });
+}
+
+function deleteHistoryEntry(firebaseId) {
+  if (!firebaseId) {
+    console.warn("❌ No Firebase ID provided for deletion.");
+    return;
+  }
+
+  if (!confirm("Are you sure you want to delete this history entry?")) return;
+
+  firebase.database().ref(`messageHistory/${firebaseId}`).remove()
+    .then(() => {
+      console.log(`🗑️ Deleted history entry: ${firebaseId}`);
+      loadHistory(); // Refresh list
+    })
+    .catch(err => {
+      console.error("❌ Failed to delete entry:", err);
+      alert("Failed to delete this entry. Check internet or Firebase permissions.");
     });
 }
 
@@ -1507,8 +1542,9 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 06/05/25 1135 lines of code
-
+//fully working 15/05/25 1551 lines of code
+//Version 20250515
+// Date Backwards
     </script>
     
 
