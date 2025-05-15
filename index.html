@@ -403,6 +403,8 @@
   
           <button onclick="sendMessage()" style="margin-top: 15px;">Send Notification</button>
           <button onclick="saveForLater()" style="margin-top: 10px; background-color: #007bff; color: white;">🚚 Book In </button>
+          <button onclick="clearForm()" style="margin-top: 10px; background-color: #6c757d; color: white;">Clear Form</button>
+
 
         </div>
       </div>
@@ -730,7 +732,7 @@ function getDefaultDeliveryDate() {
   }
   return now.toISOString().split('T')[0];
 }
-
+ 
 
 function clearForm() {
   document.getElementById('phone').value = "07894 802 472";
@@ -927,13 +929,19 @@ function sendMessage() {
   let templateSid = templateDropdown.value;
   let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
   const driverValue = document.getElementById('driver').value;
-  const [driverName, driverPhone] = driverValue.split(' - ');
-
-  let vehicleReg = document.getElementById('vehicleReg').value;
+  const deliveryDate = document.getElementById('deliveryDate').value;
+  const vehicleReg = document.getElementById('vehicleReg').value;
   const responseText = document.getElementById('response');
   const loading = document.getElementById('loading');
-  const deliveryDate = document.getElementById('deliveryDate').value;
 
+  // Extract driver name/phone safely
+  let driverName = '';
+  let driverPhone = '';
+  if (driverValue && driverValue.includes(' - ')) {
+    [driverName, driverPhone] = driverValue.split(' - ');
+  }
+
+  // Basic validation
   if (!phone) {
     responseText.style.color = "red";
     responseText.innerHTML = "Please enter a valid phone number.";
@@ -949,11 +957,10 @@ function sendMessage() {
   loading.style.display = "block";
   responseText.innerHTML = "";
 
+  // Send message to server
   fetch('https://delivery-notification.onrender.com/send-message', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       phone,
       orderNumber,
@@ -961,7 +968,7 @@ function sendMessage() {
       deliveryDate,
       customerAddress,
       siteContact,
-      driver,
+      driver: driverValue,
       vehicleReg,
       templateSid
     })
@@ -981,11 +988,10 @@ function sendMessage() {
 
       const sid = data.sid || '';
 
-      // ✅ Save message history to Firebase
+      // ✅ Save message to history
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', sid);
 
-
-      // ✅ Save order to Firebase if it wasn’t loaded from a saved entry
+      // ✅ Save to savedLater only if not loaded from existing entry
       if (!loadedFromSaved) {
         const entry = {
           phone,
@@ -1001,22 +1007,22 @@ function sendMessage() {
           deliveryDate,
           used: false
         };
-
+ 
         firebase.database().ref('savedLater').push(entry)
           .then(() => {
-            console.log("✅ Order saved to Firebase:", orderNumber);
+            console.log("✅ Order saved to savedLater:", orderNumber);
             displaySavedLater();
           })
           .catch(err => {
-            console.error("❌ Error saving to Firebase:", err);
+            console.error("❌ Failed to save to savedLater:", err);
             alert("❌ Failed to save order. Please check your internet or Firebase rules.");
           });
       }
 
-      // ✅ Update UI + reset
+      // ✅ Clean up
       loadHistory();
       clearForm();
-      loadedFromSaved = false;
+      loadedFromSaved = false; // Reset for future form use
 
       setTimeout(() => { responseText.innerHTML = ""; }, 3001);
     } else {
@@ -1029,6 +1035,7 @@ function sendMessage() {
     responseText.innerHTML = `Error: ${error.message}`;
   });
 }
+
 
 function pollStatusUpdates() {
   console.log("⏳ Polling message statuses...");
@@ -1542,9 +1549,8 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 15/05/25 1551 lines of code
-//Version 20250515
-// Date Backwards
+//fully working 15/05/25 1516 lines of code
+
     </script>
     
 
