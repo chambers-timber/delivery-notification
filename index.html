@@ -950,7 +950,6 @@ function sendMessage() {
   responseText.style.color = "black";
   responseText.innerHTML = "Sending... ⏳";
 
-  // Extract driver name and number
   let driverName = '';
   let driverPhone = '';
   const driverValue = document.getElementById('driver').value;
@@ -958,53 +957,35 @@ function sendMessage() {
     [driverName, driverPhone] = driverValue.split(' - ');
   }
 
-  const sharedPayload = {
-  orderNumber,
-  eta: etaValue,
-  deliveryDate,
-  customerAddress,
-  siteContact,
-  vehicleReg,
-  templateSid,
-  driver: driverValue  // ✅ Send "Name - Number" string to backend
-};
+  const payload = {
+    orderNumber,
+    eta: etaValue,
+    deliveryDate,
+    customerAddress,
+    siteContact,
+    vehicleReg,
+    templateSid,
+    driver: driverValue,
+    phone
+  };
 
-
-  // ✅ Send to customer
-  sendCustomerMessage({ ...sharedPayload, phone })
+  fetch('https://delivery-notification.onrender.com/send-message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
     .then(response => response.json())
     .then(data => {
-      if (!data.success) throw new Error(data.error || "Failed to send customer message.");
-
+      if (!data.success) throw new Error(data.error || "Failed to send message.");
       console.log("✅ Sent to customer:", data.sid);
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
 
-      // Show confirmation
       responseText.style.color = "green";
-      responseText.innerHTML = "Message sent to customer ✅";
+      responseText.innerHTML = "Message sent ✅";
 
-      // Hide after 3 seconds
       setTimeout(() => {
         responseText.innerHTML = "";
       }, 3000);
-
-      // ✅ Send to driver if number is valid
-      if (driverPhone && driverPhone.startsWith('+44')) {
-        return sendDriverMessage({ ...sharedPayload, phone: driverPhone })
-          .then(res => res.json())
-          .then(driverData => {
-            if (driverData.success) {
-              console.log("✅ Sent to driver:", driverData.sid);
-            } else {
-              console.warn("⚠️ Driver message failed:", driverData.error);
-            }
-          })
-          .catch(err => {
-            console.error("❌ Error sending to driver:", err.message);
-          });
-      } else {
-        console.log("⚠️ No valid driver number provided.");
-      }
     })
     .catch(err => {
       responseText.style.color = "red";
@@ -1016,7 +997,6 @@ function sendMessage() {
       clearForm();
     });
 }
-
 
 function pollStatusUpdates() {
   console.log("⏳ Polling message statuses...");
