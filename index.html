@@ -959,6 +959,8 @@ function sendMessage() {
     [driverName, driverPhone] = driverValue.split(' - ');
   }
 
+  const driverFull = `${driverName} - ${driverPhone}`.trim();
+
   const sharedPayload = {
     orderNumber,
     eta: etaValue,
@@ -966,7 +968,8 @@ function sendMessage() {
     customerAddress,
     siteContact,
     vehicleReg,
-    templateSid
+    templateSid,
+    driver: driverFull
   };
 
   // ✅ Send to customer
@@ -1015,6 +1018,7 @@ function sendMessage() {
       clearForm();
     });
 }
+
 
 
 function pollStatusUpdates() {
