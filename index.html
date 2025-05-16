@@ -611,12 +611,9 @@ function showTab(id) {
 
  // ✅ Poll for message status updates every 5 seconds
  setInterval(() => {
-  let updated = false;
-
   firebase.database().ref('messageHistory').once('value')
     .then(snapshot => {
       const history = snapshot.val() || {};
-      const updates = [];
 
       Object.entries(history).forEach(([id, entry]) => {
         if (!entry.messageSid || entry.status === 'read') return;
@@ -627,21 +624,19 @@ function showTab(id) {
             if (data.status && data.status !== entry.status) {
               console.log(`🔄 SID ${entry.messageSid} → ${data.status}`);
               firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
-              updated = true;
             }
           })
           .catch(err => console.warn('❌ Error checking status:', err));
       });
 
-      // Delay UI refresh slightly to ensure updates have time to apply
+      // ✅ Always refresh UI regardless of status change
       setTimeout(() => {
-        if (updated) {
-          loadHistory();
-          displaySavedLater();
-        }
+        loadHistory();
+        displaySavedLater();
       }, 1500);
     });
-}, 5000); 
+}, 5000);
+
 
   </script>
   
@@ -753,26 +748,57 @@ function clearForm() {
 
 
 // Function to load message history from localStorage 
-function displayHistory() {
+/*function displayHistory() {
   const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-  const historyList = document.getElementById('history-list'); 
+  const historyList = document.getElementById('history-list');
   historyList.innerHTML = '';
 
-  
-
   savedHistory.forEach(item => {
-    const entryDiv = document.createElement('div');
-    entryDiv.className = 'history-entry'; // use this for styling if needed
+    const entryDiv = document.createElement('li');
+    entryDiv.style.display = 'flex';
+    entryDiv.style.alignItems = 'center';
+    entryDiv.style.justifyContent = 'space-between';
+    entryDiv.style.gap = '10px';
+    entryDiv.style.fontSize = '13px';
 
-    entryDiv.innerText = `Order: ${item.orderNumber}
-Template: ${item.templateLabel}
-Driver: ${item.driverName} - ${item.driverPhone}
-📅 ${item.dateTime}, ${item.status}`;
+    const status = item.status?.toLowerCase() || '';
+    const isDriver = item.orderNumber?.includes('(Driver)');
+    let icon = '⏳';
+    let color = 'gray';
 
+    if (status === 'sent') {
+      icon = '📨';
+      color = 'blue';
+    } else if (status === 'delivered') {
+      icon = '✅';
+      color = 'green';
+    } else if (status === 'read') {
+      icon = '✅✅';
+      color = isDriver ? 'blue' : 'green';
+    }
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    info.style.overflow = 'hidden';
+    info.style.textOverflow = 'ellipsis';
+    info.style.whiteSpace = 'nowrap';
+    info.innerHTML = `
+      <span style="color: ${color}; margin-right: 5px;">${icon}</span>
+      <strong>${item.orderNumber}</strong> |
+      ETA: ${item.eta || 'TBC'} |
+      ${item.templateLabel || 'N/A'} |
+      ${item.customerAddress || 'N/A'} |
+      ${item.siteContact || 'N/A'} |
+      ${item.deliveryDate || 'TBC'} |
+      Driver: ${item.driverName || 'N/A'} |
+      Time: ${item.timeSent || 'N/A'}
+    `;
+
+    entryDiv.appendChild(info);
     historyList.prepend(entryDiv);
-
   });
-}
+}*/
+
 
 function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', eta = '', status = 'Sent', messageSid = '') {
 
@@ -835,11 +861,20 @@ function loadHistory() {
       }
 
       historyList.innerHTML = '';
-      const items = Object.entries(data).map(([firebaseId, entry]) => ({ ...entry, firebaseId }));
 
+      const items = Object.entries(data).map(([firebaseId, entry]) => ({ ...entry, firebaseId }));
       items.sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0));
 
+      // Group messages by base order number
+      const grouped = {};
       items.forEach(item => {
+        const baseOrder = item.orderNumber.replace(' (Driver)', '').trim().toUpperCase();
+        if (!grouped[baseOrder]) grouped[baseOrder] = [];
+        grouped[baseOrder].push(item);
+      });
+
+      // Render each group
+      Object.entries(grouped).forEach(([baseOrder, messages]) => {
         const entry = document.createElement('li');
         entry.style.display = 'flex';
         entry.style.alignItems = 'center';
@@ -847,34 +882,49 @@ function loadHistory() {
         entry.style.gap = '10px';
         entry.style.fontSize = '13px';
 
-        let status = item.status || '';
-        let icon = '⏳', color = 'gray';
-        if (status.toLowerCase() === 'sent') { icon = '📨'; color = 'blue'; }
-        else if (status.toLowerCase() === 'delivered') { icon = '✅'; color = 'green'; }
-        else if (status.toLowerCase() === 'read') { icon = '✅✅'; color = 'black'; }
+        const iconsDiv = document.createElement('div');
+        iconsDiv.style.minWidth = '60px';
+        iconsDiv.style.display = 'flex';
+        iconsDiv.style.gap = '3px';
 
-        const driver = item.driverName || 'N/A';
-        const time = item.timeSent || 'N/A';
+        let sharedMessage = messages[0];
 
-        // Left: Info
+        messages.forEach(msg => {
+          const isDriver = msg.orderNumber.includes('(Driver)');
+          const status = (msg.status || '').toLowerCase();
+          const icon = document.createElement('span');
+
+          if (isDriver) {
+            icon.textContent = status === 'read' ? '☑☑' : status === 'delivered' ? '☑' : '📨';
+            icon.style.color = 'blue';
+          } else {
+            icon.textContent = status === 'read' ? '✅✅' : status === 'delivered' ? '✅' : '📨';
+            icon.style.color = status === 'read' || status === 'delivered' ? 'green' : 'blue';
+          }
+
+          iconsDiv.appendChild(icon);
+        });
+
+        // Use customer message as default for display
+        const customerMsg = messages.find(m => !m.orderNumber.includes('(Driver)'));
+        if (customerMsg) sharedMessage = customerMsg;
+
         const info = document.createElement('div');
         info.style.flex = '1';
         info.style.overflow = 'hidden';
         info.style.textOverflow = 'ellipsis';
         info.style.whiteSpace = 'nowrap';
         info.innerHTML = `
-          <span style="color: ${color}; margin-right: 5px;">${icon}</span>
-          <strong>${item.orderNumber}</strong> |
-          ETA: ${item.eta || 'TBC'} |
-          ${item.templateLabel} |
-          ${item.customerAddress || 'N/A'} |
-          ${item.siteContact || 'N/A'} |
-          ${item.deliveryDate} |
-          Driver: ${driver} |
-          Time: ${time}
+          <strong>${baseOrder}</strong> |
+          ETA: ${sharedMessage.eta || 'TBC'} |
+          ${sharedMessage.templateLabel?.replace(' (Driver)', '') || ''} |
+          ${sharedMessage.customerAddress || 'N/A'} |
+          ${sharedMessage.siteContact || 'N/A'} |
+          ${sharedMessage.deliveryDate || ''} |
+          Driver: ${sharedMessage.driverName || 'N/A'} |
+          Time: ${sharedMessage.timeSent || ''}
         `;
 
-        // Right: Delete button
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = '🗑️';
         deleteBtn.style.background = 'transparent';
@@ -882,8 +932,11 @@ function loadHistory() {
         deleteBtn.style.cursor = 'pointer';
         deleteBtn.style.fontSize = '12px';
         deleteBtn.style.flex = '0';
-        deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
+        deleteBtn.onclick = () => {
+          messages.forEach(msg => deleteHistoryEntry(msg.firebaseId));
+        };
 
+        entry.appendChild(iconsDiv);
         entry.appendChild(info);
         entry.appendChild(deleteBtn);
         historyList.prepend(entry);
@@ -894,6 +947,10 @@ function loadHistory() {
       historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
     });
 }
+
+
+
+
 
 function deleteHistoryEntry(firebaseId) {
   if (!firebaseId) {
@@ -930,7 +987,8 @@ function sendDriverMessage(payload) {
 }
 
 
-// Updated sendMessage() function
+let driverMessageSent = false; // ✅ Declare globally
+
 function sendMessage() {
   const phone = document.getElementById('phone').value.trim();
   const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
@@ -950,6 +1008,7 @@ function sendMessage() {
   responseText.style.color = "black";
   responseText.innerHTML = "Sending... ⏳";
 
+  // Extract driver name and number
   let driverName = '';
   let driverPhone = '';
   const driverValue = document.getElementById('driver').value;
@@ -958,6 +1017,7 @@ function sendMessage() {
   }
 
   const payload = {
+    phone,
     orderNumber,
     eta: etaValue,
     deliveryDate,
@@ -965,8 +1025,7 @@ function sendMessage() {
     siteContact,
     vehicleReg,
     templateSid,
-    driver: driverValue,
-    phone
+    driver: driverValue // ✅ Send full "Name - Number" to backend, let it handle driver logic
   };
 
   fetch('https://delivery-notification.onrender.com/send-message', {
@@ -977,26 +1036,51 @@ function sendMessage() {
     .then(response => response.json())
     .then(data => {
       if (!data.success) throw new Error(data.error || "Failed to send message.");
+
       console.log("✅ Sent to customer:", data.sid);
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
 
+      // If driver SID exists, log and save
+      if (data.driverSid) {
+        console.log("✅ Sent to driver:", data.driverSid);
+        saveHistory(
+          orderNumber + ' (Driver)',
+          templateLabel + ' (Driver)',
+          driverName,
+          driverPhone,
+          customerAddress,
+          siteContact,
+          deliveryDate,
+          etaValue,
+          'Sent',
+          data.driverSid
+        );
+      }
+
       responseText.style.color = "green";
-      responseText.innerHTML = "Message sent ✅";
+      responseText.innerHTML = "Messages sent ✅";
 
       setTimeout(() => {
         responseText.innerHTML = "";
       }, 3000);
     })
     .catch(err => {
+      console.error("❌ Error:", err.message);
       responseText.style.color = "red";
       responseText.innerHTML = `❌ ${err.message}`;
     })
     .finally(() => {
       loading.style.display = "none";
       loadHistory();
+      displaySavedLater();
       clearForm();
     });
 }
+
+
+
+
+
 
 function pollStatusUpdates() {
   console.log("⏳ Polling message statuses...");
