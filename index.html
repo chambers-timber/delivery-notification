@@ -611,31 +611,37 @@ function showTab(id) {
 
  // ✅ Poll for message status updates every 5 seconds
  setInterval(() => {
+  let somethingUpdated = false;
+
   firebase.database().ref('messageHistory').once('value')
     .then(snapshot => {
       const history = snapshot.val() || {};
 
-      Object.entries(history).forEach(([id, entry]) => {
-        if (!entry.messageSid || entry.status === 'read') return;
+      const fetches = Object.entries(history).map(([id, entry]) => {
+        if (!entry.messageSid || entry.status === 'read') return Promise.resolve();
 
-        fetch(`/message-status/${entry.messageSid}`)
+        return fetch(`/message-status/${entry.messageSid}`)
           .then(res => res.json())
           .then(data => {
             if (data.status && data.status !== entry.status) {
               console.log(`🔄 SID ${entry.messageSid} → ${data.status}`);
-              firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
+              somethingUpdated = true;
+              return firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
             }
           })
           .catch(err => console.warn('❌ Error checking status:', err));
       });
 
-      // ✅ Always refresh UI regardless of status change
-      setTimeout(() => {
-        loadHistory();
-        displaySavedLater();
-      }, 1500);
+      // Wait for all fetches and then refresh only if needed
+      return Promise.all(fetches).then(() => {
+        if (somethingUpdated) {
+          loadHistory();
+          displaySavedLater();
+        }
+      });
     });
 }, 5000);
+
 
 
   </script>
@@ -1156,14 +1162,20 @@ function saveForLater() {
   const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
   const customerAddress = document.getElementById('customerAddress').value.trim();
   const etaValue = document.getElementById("etaDropdown").value;
-  const siteContact = document.getElementById('siteContact').value.trim();
+  
+  // ✅ If site contact is empty, fallback to customer's number
+  let siteContact = document.getElementById('siteContact').value.trim();
+  if (!siteContact) {
+    siteContact = phone;
+  }
+
   const templateDropdown = document.getElementById('messageTemplate');
   const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
   const templateSid = templateDropdown.value;
+
   const driverValue = document.getElementById('driver').value || '';
-  const driverParts = driverValue.split(' - ');
-  const driverName = driverParts[0] || '';
-  const driverPhone = driverParts[1] || '';
+  const [driverName = '', driverPhone = ''] = driverValue.split(' - ');
+  
   const vehicleReg = document.getElementById('vehicleReg').value;
   const deliveryDate = document.getElementById('deliveryDate').value;
 
@@ -1178,7 +1190,7 @@ function saveForLater() {
     orderNumber,
     customerAddress,
     etaValue,
-    siteContact,
+    siteContact, // ✅ uses fallback
     templateLabel,
     templateSid,
     driverName,
@@ -1188,11 +1200,10 @@ function saveForLater() {
     used: false
   };
 
-  // ✅ Save to Firebase Realtime Database
   firebase.database().ref('savedLater').push(entry)
     .then(() => {
       console.log("✅ Saved to Firebase:", entry.orderNumber);
-      displaySavedLater(); // refresh UI from Firebase
+      displaySavedLater(); 
       clearForm();
     })
     .catch(error => {
@@ -1200,6 +1211,7 @@ function saveForLater() {
       alert("Failed to save. Please check your connection or Firebase rules.");
     });
 }
+
 
 let lastDeletedHistory = null; // Global backup
 
