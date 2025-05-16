@@ -384,11 +384,11 @@
               <label for="driver">🚛 Select Driver:</label><br>
               <select id="driver" style="width: 100%;">
                 <option value="">Choose a driver...</option>
-                <option value="Russel - 07123456789">Russel</option>
-                <option value="Ricky - 07234567890">Ricky</option>
-                <option value="Terry - 07345678901">Terry</option>
-                <option value="Jay - 07456789012">Jay</option>
-                <option value="John - 07567890123">John</option>
+                <option value="Russel - +447584659474">Russel</option>
+                <option value="Ricky - +447584659474">Ricky</option>
+                <option value="Terry - +447584659474">Terry</option>
+                <option value="Jay - +447584659474">Jay</option>
+                <option value="John - +447584659474">John</option> 
               </select>
             </div>
             <div style="flex: 1;">
@@ -723,8 +723,6 @@ function updateMessage() {
 }
 
 
-
-
 function getDefaultDeliveryDate() {
   const now = new Date();
   if (now.getHours() >= 15) {
@@ -735,7 +733,7 @@ function getDefaultDeliveryDate() {
  
 
 function clearForm() {
-  document.getElementById('phone').value = "07894 802 472";
+  document.getElementById('phone').value = "";
   document.getElementById('orderNumber').value = "";
   document.getElementById('customerAddress').value = "";
   document.getElementById('messageTemplate').selectedIndex = 0;
@@ -915,125 +913,106 @@ function deleteHistoryEntry(firebaseId) {
       alert("Failed to delete this entry. Check internet or Firebase permissions.");
     });
 }
+function sendCustomerMessage(payload) {
+  return fetch('https://delivery-notification.onrender.com/send-message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+function sendDriverMessage(payload) {
+  return fetch('https://delivery-notification.onrender.com/send-message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
 
 
 // Updated sendMessage() function
 function sendMessage() {
-  let phone = document.getElementById('phone').value.trim();
-  let orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-  let customerAddress = document.getElementById('customerAddress').value.trim();
-  let etaValue = document.getElementById("etaDropdown").value;
-  let siteContactInput = document.getElementById('siteContact').value.trim();
-  let siteContact = siteContactInput || phone;
-  let templateDropdown = document.getElementById('messageTemplate');
-  let templateSid = templateDropdown.value;
-  let templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
-  const driverValue = document.getElementById('driver').value;
+  const phone = document.getElementById('phone').value.trim();
+  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+  const customerAddress = document.getElementById('customerAddress').value.trim();
+  const etaValue = document.getElementById("etaDropdown").value;
+  const siteContactInput = document.getElementById('siteContact').value.trim();
+  const siteContact = siteContactInput || phone;
+  const templateDropdown = document.getElementById('messageTemplate');
+  const templateSid = templateDropdown.value;
+  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
   const deliveryDate = document.getElementById('deliveryDate').value;
   const vehicleReg = document.getElementById('vehicleReg').value;
+
   const responseText = document.getElementById('response');
   const loading = document.getElementById('loading');
+  loading.style.display = "block";
+  responseText.style.color = "black";
+  responseText.innerHTML = "Sending... ⏳";
 
-  // Extract driver name/phone safely
+  // Extract driver name and number
   let driverName = '';
   let driverPhone = '';
+  const driverValue = document.getElementById('driver').value;
   if (driverValue && driverValue.includes(' - ')) {
     [driverName, driverPhone] = driverValue.split(' - ');
   }
 
-  // Basic validation
-  if (!phone) {
-    responseText.style.color = "red";
-    responseText.innerHTML = "Please enter a valid phone number.";
-    return;
-  }
+  const sharedPayload = {
+    orderNumber,
+    eta: etaValue,
+    deliveryDate,
+    customerAddress,
+    siteContact,
+    vehicleReg,
+    templateSid
+  };
 
-  if (templateSid === "HXb930591ce15ddf1213379a48a92349e0" && !deliveryDate) {
-    responseText.style.color = "red";
-    responseText.innerHTML = "Please select a Delivery Date for Order Confirmations.";
-    return;
-  }
+  // ✅ Send to customer
+  sendCustomerMessage({ ...sharedPayload, phone })
+    .then(response => response.json())
+    .then(data => {
+      if (!data.success) throw new Error(data.error || "Failed to send customer message.");
 
-  loading.style.display = "block";
-  responseText.innerHTML = "";
+      console.log("✅ Sent to customer:", data.sid);
+      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
 
-  // Send message to server
-  fetch('https://delivery-notification.onrender.com/send-message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      phone,
-      orderNumber,
-      eta: etaValue,
-      deliveryDate,
-      customerAddress,
-      siteContact,
-      driver: driverValue,
-      vehicleReg,
-      templateSid
-    })
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`Server responded with status: ${response.status}`);
-    }
-    return response.json(); 
-  })
-  .then(data => {
-    loading.style.display = "none";
-
-    if (data.success) {
+      // Show confirmation
       responseText.style.color = "green";
-      responseText.innerHTML = "Message sent successfully! ✅";
+      responseText.innerHTML = "Message sent to customer ✅";
 
-      const sid = data.sid || '';
+      // Hide after 3 seconds
+      setTimeout(() => {
+        responseText.innerHTML = "";
+      }, 3000);
 
-      // ✅ Save message to history
-      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', sid);
-
-      // ✅ Save to savedLater only if not loaded from existing entry
-      if (!loadedFromSaved) {
-        const entry = {
-          phone,
-          orderNumber,
-          customerAddress,
-          etaValue,
-          siteContact,
-          templateLabel,
-          templateSid,
-          driverName,
-          driverPhone,
-          vehicleReg,
-          deliveryDate,
-          used: false
-        };
- 
-        firebase.database().ref('savedLater').push(entry)
-          .then(() => {
-            console.log("✅ Order saved to savedLater:", orderNumber);
-            displaySavedLater();
+      // ✅ Send to driver if number is valid
+      if (driverPhone && driverPhone.startsWith('+44')) {
+        return sendDriverMessage({ ...sharedPayload, phone: driverPhone })
+          .then(res => res.json())
+          .then(driverData => {
+            if (driverData.success) {
+              console.log("✅ Sent to driver:", driverData.sid);
+            } else {
+              console.warn("⚠️ Driver message failed:", driverData.error);
+            }
           })
           .catch(err => {
-            console.error("❌ Failed to save to savedLater:", err);
-            alert("❌ Failed to save order. Please check your internet or Firebase rules.");
+            console.error("❌ Error sending to driver:", err.message);
           });
+      } else {
+        console.log("⚠️ No valid driver number provided.");
       }
-
-      // ✅ Clean up
+    })
+    .catch(err => {
+      responseText.style.color = "red";
+      responseText.innerHTML = `❌ ${err.message}`;
+    })
+    .finally(() => {
+      loading.style.display = "none";
       loadHistory();
       clearForm();
-      loadedFromSaved = false; // Reset for future form use
-
-      setTimeout(() => { responseText.innerHTML = ""; }, 3001);
-    } else {
-      throw new Error(data.error || "Unknown error occurred");
-    }
-  })
-  .catch(error => {
-    loading.style.display = "none";
-    responseText.style.color = "red";
-    responseText.innerHTML = `Error: ${error.message}`;
-  });
+    });
 }
 
 
@@ -1549,8 +1528,8 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 15/05/25 1516 lines of code
-
+//fully working 16/05/25 1537 lines of code
+// version 20250516
     </script>
     
 
