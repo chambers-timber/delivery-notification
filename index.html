@@ -310,7 +310,7 @@
           <div style="display: flex; gap: 20px;">
             <div style="flex: 1;">
               <label for="phone">📞 Customer's Number:</label><br>
-              <input type="text" id="phone" value="07894 802 472" style="width: 100%;">
+              <input type="text" id="phone" onblur="formatCustomerNumber()" />
             </div>
             <div style="flex: 1;">
               <label for="orderNumber">📦 Order Number:</label><br>
@@ -331,7 +331,8 @@
   
           <div style="margin-top: 10px;">
             <label for="customerAddress">📍 Delivery Address:</label><br>
-            <input type="text" id="customerAddress" placeholder="397 Romford Rd, E7 8AB" style="width: 98%;">
+            <input type="text" id="customerAddress" placeholder="397 Romford Rd, E7 8AB" style="width: 98%;" onblur="cleanAddressInput()">
+
           </div>
   
           <div style="display: flex; gap: 20px; margin-top: 10px;">
@@ -384,11 +385,12 @@
               <label for="driver">🚛 Select Driver:</label><br>
               <select id="driver" style="width: 100%;">
                 <option value="">Choose a driver...</option>
-                <option value="Russel - +447584659474">Russel</option>
-                <option value="Ricky - +447584659474">Ricky</option>
-                <option value="Terry - +447584659474">Terry</option>
-                <option value="Jay - +447584659474">Jay</option>
-                <option value="John - +447584659474">John</option> 
+                <option value="Russel - +447415502238">Russel</option>
+                <option value="Ricky - +447825133669">Ricky</option>
+                <option value="Terry - +447939312736">Terry</option>
+                <option value="Jay - +447727949338">Jay</option>
+                <option value="John - +447914411167">John</option>
+                <option value="Michael - +447894802472">Michael</option> 
               </select>
             </div>
             <div style="flex: 1;">
@@ -575,8 +577,12 @@ function showTab(id) {
 
   window.onload = () => {
   loadInbox();
-  document.getElementById('deliveryDate').value = getDefaultDeliveryDate(); // ✅ Fix applied here
+  document.getElementById('deliveryDate').value = getDefaultDeliveryDate();
+
+  // ✅ Attach formatter for phone field when it loses focus
+  document.getElementById('phone').addEventListener('blur', formatNameAndPhone);
 };
+
 
 
 </script>
@@ -1031,9 +1037,35 @@ function sendMessage() {
     siteContact,
     vehicleReg,
     templateSid,
-    driver: driverValue // ✅ Send full "Name - Number" to backend, let it handle driver logic
+    driver: driverValue // Send full driver string
   };
 
+  // ✅ Save to 'savedLater' before sending
+  const entry = {
+    id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
+    phone,
+    orderNumber,
+    customerAddress,
+    etaValue,
+    siteContact,
+    templateLabel,
+    templateSid,
+    driverName,
+    driverPhone,
+    vehicleReg,
+    deliveryDate,
+    used: false
+  };
+
+  firebase.database().ref('savedLater').push(entry)
+    .then(() => {
+      console.log("✅ Saved to 'savedLater' before sending:", orderNumber);
+    })
+    .catch(err => {
+      console.error("❌ Failed to save to 'savedLater':", err);
+    });
+
+  // ✅ Proceed to send WhatsApp messages
   fetch('https://delivery-notification.onrender.com/send-message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1046,7 +1078,7 @@ function sendMessage() {
       console.log("✅ Sent to customer:", data.sid);
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
 
-      // If driver SID exists, log and save
+      // Save driver's message if returned
       if (data.driverSid) {
         console.log("✅ Sent to driver:", data.driverSid);
         saveHistory(
@@ -1065,7 +1097,6 @@ function sendMessage() {
 
       responseText.style.color = "green";
       responseText.innerHTML = "Messages sent ✅";
-
       setTimeout(() => {
         responseText.innerHTML = "";
       }, 3000);
@@ -1082,8 +1113,6 @@ function sendMessage() {
       clearForm();
     });
 }
-
-
 
 
 
@@ -1155,6 +1184,58 @@ firebase.database().ref('messageHistory').on('child_added', snapshot => {
   loadHistory();
   displaySavedLater();
 });
+
+function cleanAddressInput() {
+  const addressInput = document.getElementById('customerAddress');
+  let value = addressInput.value;
+
+  // 🔴 Remove unwanted words
+  value = value.replace(/\b(london|postcode)\b/gi, '');
+
+  // 🧼 Trim and normalize spacing
+  value = value.replace(/\s{2,}/g, ' ').trim();
+
+  // ✨ Attempt to extract postcode
+  const postcodeMatch = value.match(/([A-Z]{1,2}\d{1,2}[A-Z]?)\s?(\d[A-Z]{2})/i);
+  let postcode = '';
+  if (postcodeMatch) {
+    postcode = `${postcodeMatch[1].toUpperCase()} ${postcodeMatch[2].toUpperCase()}`;
+    value = value.replace(postcodeMatch[0], '').trim(); // remove postcode temporarily
+  }
+
+  // 🔠 Capitalize each word
+  value = value.split(' ').map(word => {
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+
+  // 🔁 Append postcode at end
+  if (postcode) {
+    value = `${value} ${postcode}`;
+  }
+
+  addressInput.value = value;
+}
+
+function formatNameAndPhone() {
+  const phoneInput = document.getElementById('phone');
+  let raw = phoneInput.value.trim();
+
+  // Match strictly: Name followed by 11 digits, with optional space and hyphen
+  const match = raw.match(/^([\w\s.'-]+?)\s*-\s*(0\d{10})$/);
+
+  if (match) {
+    const name = match[1].trim();
+    const number = match[2];
+
+    const formatted = `${number.slice(0, 5)} ${number.slice(5, 8)} ${number.slice(8)}`;
+    phoneInput.value = `${name} - ${formatted}`;
+  }
+}
+
+
+
+
+
 
 
 function saveForLater() {
