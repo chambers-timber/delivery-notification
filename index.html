@@ -1592,50 +1592,50 @@ function printSavedLater() {
 
 
 function loadSavedEntry(orderNumber, phone) {
-  const saved = JSON.parse(localStorage.getItem('savedLater')) || [];
-
-  // Normalize phone numbers
-  const clean = str => str.replace(/\s+/g, '').replace(/^0/, '+44');
+  const clean = str => str?.replace(/\s+/g, '').replace(/^0/, '+44') || '';
   const cleanedPhone = clean(phone);
+  const cleanedOrder = orderNumber?.trim().toUpperCase();
 
-  const item = saved.find(entry =>
-    entry.orderNumber === orderNumber &&
-    clean(entry.phone) === cleanedPhone
-  );
+  firebase.database().ref('savedLater').once('value')
+    .then(snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        alert("Could not find matching saved entry.");
+        return;
+      }
 
-  if (!item) {
-    alert("Could not find matching saved entry.");
-    return;
-  }
+      const match = Object.entries(data).find(([key, entry]) =>
+        entry.orderNumber?.trim().toUpperCase() === cleanedOrder &&
+        clean(entry.phone) === cleanedPhone
+      );
 
-  // ✅ Load values into form
-  document.getElementById('phone').value = item.phone || '';
-  document.getElementById('orderNumber').value = item.orderNumber || '';
-  document.getElementById('customerAddress').value = item.customerAddress || '';
-  document.getElementById('etaDropdown').value = item.etaValue || '';
-  document.getElementById('siteContact').value = item.siteContact || '';
-  document.getElementById('messageTemplate').value = item.templateSid || '';
-  document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
-  document.getElementById('vehicleReg').value = item.vehicleReg || '';
-  document.getElementById('deliveryDate').value = item.deliveryDate || '';
+      if (!match) {
+        alert("Could not find matching saved entry.");
+        return;
+      }
 
-  updateMessage();
+      const [firebaseId, item] = match;
 
-  // ✅ Mark this entry as used if not already
-  const index = saved.findIndex(entry =>
-    entry.orderNumber === orderNumber &&
-    clean(entry.phone) === cleanedPhone
-  );
+      // ✅ Load values into form
+      document.getElementById('phone').value = item.phone || '';
+      document.getElementById('orderNumber').value = item.orderNumber || '';
+      document.getElementById('customerAddress').value = item.customerAddress || '';
+      document.getElementById('etaDropdown').value = item.etaValue || '';
+      document.getElementById('siteContact').value = item.siteContact || '';
+      document.getElementById('messageTemplate').value = item.templateSid || '';
+      document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
+      document.getElementById('vehicleReg').value = item.vehicleReg || '';
+      document.getElementById('deliveryDate').value = item.deliveryDate || '';
+      document.getElementById('lastLoadedSavedId').value = firebaseId;
 
-  if (index !== -1 && !saved[index].used) {
-    saved[index].used = true;
-    localStorage.setItem('savedLater', JSON.stringify(saved));
-    displaySavedLater();
-  }
+      updateMessage();
 
-  // ✅ Set global flag and form tracking ID to avoid re-saving
-  loadedFromSaved = true;
-  document.getElementById('lastLoadedSavedId').value = item.id || '';
+      loadedFromSaved = true;
+    })
+    .catch(err => {
+      console.error("❌ Error loading saved entry from Firebase:", err);
+      alert("Could not find matching saved entry.");
+    });
 }
 
 
