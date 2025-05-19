@@ -905,21 +905,23 @@ function loadHistory() {
 
         let sharedMessage = messages[0];
 
-        messages.forEach(msg => {
-          const isDriver = msg.orderNumber.includes('(Driver)');
-          const status = (msg.status || '').toLowerCase();
-          const icon = document.createElement('span');
+        // ✅ New logic: Only show one ✅ for delivered, one ✅ for read
+        const hasDelivered = messages.some(msg => msg.status?.toLowerCase() === 'delivered' || msg.status?.toLowerCase() === 'read');
+        const hasRead = messages.some(msg => msg.status?.toLowerCase() === 'read');
 
-          if (isDriver) {
-            icon.textContent = status === 'read' ? '☑☑' : status === 'delivered' ? '☑' : '📨';
-            icon.style.color = 'blue';
-          } else {
-            icon.textContent = status === 'read' ? '✅✅' : status === 'delivered' ? '✅' : '📨';
-            icon.style.color = status === 'read' || status === 'delivered' ? 'green' : 'blue';
-          }
+        if (hasDelivered) {
+          const deliveredIcon = document.createElement('span');
+          deliveredIcon.textContent = '✅';
+          deliveredIcon.style.color = 'green';
+          iconsDiv.appendChild(deliveredIcon);
+        }
 
-          iconsDiv.appendChild(icon);
-        });
+        if (hasRead) {
+          const readIcon = document.createElement('span');
+          readIcon.textContent = '✅';
+          readIcon.style.color = 'black';
+          iconsDiv.appendChild(readIcon);
+        }
 
         // Use customer message as default for display
         const customerMsg = messages.find(m => !m.orderNumber.includes('(Driver)'));
@@ -963,8 +965,6 @@ function loadHistory() {
       historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
     });
 }
-
-
 
 
 
