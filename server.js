@@ -1,6 +1,6 @@
-// 📦 FINAL server.js with driver support (cleaned)
+// 📦 FINAL server.js with driver support + freeform reply (fixed)
 const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-service-account.json'); 
+const serviceAccount = require('./firebase-service-account.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -28,8 +28,6 @@ const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = twilio(accountSid, authToken);
 const whatsappNumber = 'whatsapp:+447706802841';
-
-const inboxMessages = [];
 const orderConfirmationTemplateSid = 'HXb930591ce15ddf1213379a48a92349e0';
 
 function formatPhoneNumber(phone) {
@@ -53,20 +51,12 @@ function formatUKDate(dateStr) {
   return `${dayName} ${dayNum}${suffix} ${monthName} ${year}`;
 }
 
+// ✅ Send templated WhatsApp message to customer + optional driver
 app.post('/send-message', async (req, res) => {
   try {
-    console.log('📩 Incoming send-message POST body:', req.body);
-
     const {
-      phone,
-      orderNumber,
-      eta,
-      deliveryDate,
-      customerAddress,
-      siteContact,
-      vehicleReg,
-      templateSid,
-      driver
+      phone, orderNumber, eta, deliveryDate, customerAddress,
+      siteContact, vehicleReg, templateSid, driver
     } = req.body;
 
     const customerPhone = formatPhoneNumber(phone);
@@ -123,6 +113,7 @@ app.post('/send-message', async (req, res) => {
       ...messagePayload,
       to: `whatsapp:${customerPhone}`
     });
+
     console.log('✅ Customer message SID:', customerMessage.sid);
 
     let driverSid = '';
@@ -135,107 +126,113 @@ app.post('/send-message', async (req, res) => {
         driverSid = driverMessage.sid;
         console.log('✅ Driver message SID:', driverSid);
       } catch (err) {
-        console.error(`❌ Failed to send to driver ${driverPhone}:`, err.message);
+        console.error(`❌ Driver message failed: ${err.message}`);
       }
-    } else {
-      console.warn(`⚠️ Skipping driver send — invalid or missing number: ${driverPhone}`);
     }
 
     res.json({ success: true, sid: customerMessage.sid, driverSid });
-  } catch (error) {
-    console.error('❌ Failed to send message:', error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    console.error('❌ Error in /send-message:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
+// ✅ Freeform reply (manual messages)
+app.post('/send-reply', async (req, res) => {
+  const { phone, message } = req.body;
+  if (!phone || !message) {
+    return res.status(400).json({ success: false, error: 'Missing phone or message' });
+  }
+
+  const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${formatPhoneNumber(phone)}`;
+
+  try {
+    const reply = await client.messages.create({
+      from: whatsappNumber,
+      to,
+      body: message
+    });
+
+    console.log('✅ Freeform reply SID:', reply.sid);
+    res.json({ success: true, sid: reply.sid });
+  } catch (err) {
+    console.error('❌ Failed to send reply:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ✅ Incoming WhatsApp messages saved to Firebase
 app.post('/incoming-whatsapp', (req, res) => {
   const from = req.body.From || '';
   const body = req.body.Body || '';
-  console.log('📩 Incoming message received:', { from, body });
+  console.log('📩 Incoming message:', { from, body });
 
   if (from.startsWith('whatsapp:') && body) {
     const number = from.replace('whatsapp:', '');
-    inboxMessages.push({
-      number,
-      message: body,
-      time: new Date().toLocaleTimeString()
-    });
+    const timestamp = new Date().toISOString();
+    db.ref('inboxMessages').push({ number, message: body, time: timestamp });
   }
 
   res.set('Content-Type', 'text/xml');
   res.send('<Response></Response>');
 });
 
+// ✅ Delivery status updates from Twilio
 app.post('/status-callback', (req, res) => {
-  const messageSid = req.body.MessageSid || 'unknown';
-  const messageStatus = req.body.MessageStatus || 'unknown';
-  console.log(`📬 Status update received: SID ${messageSid} → ${messageStatus}`);
+  const messageSid = req.body.MessageSid || '';
+  const messageStatus = req.body.MessageStatus || '';
+  console.log(`📬 Status update: ${messageSid} → ${messageStatus}`);
 
-  const ref = db.ref('messageHistory');
-  ref.orderByChild('messageSid').equalTo(messageSid).once('value', snapshot => {
-    if (!snapshot.exists()) {
-      console.warn(`⚠️ No Firebase entry found for SID: ${messageSid}`);
-    }
-    snapshot.forEach(child => {
-      child.ref.update({ status: messageStatus });
-      console.log(`✅ Firebase updated: ${messageSid} → ${messageStatus}`);
+  if (!messageSid) return res.sendStatus(400);
+
+  db.ref('messageHistory')
+    .orderByChild('messageSid')
+    .equalTo(messageSid)
+    .once('value', snapshot => {
+      if (!snapshot.exists()) {
+        console.warn(`⚠️ SID not found in Firebase: ${messageSid}`);
+      }
+      snapshot.forEach(child => {
+        child.ref.update({ status: messageStatus });
+      });
+      res.sendStatus(200);
     });
-  });
-
-  res.sendStatus(200);
 });
 
+// ✅ Manually check message status
 app.get('/message-status/:sid', async (req, res) => {
   try {
-    const sid = req.params.sid;
-    const message = await client.messages(sid).fetch();
-    console.log(`📩 Fetched status from Twilio: ${sid} → ${message.status}`);
+    const message = await client.messages(req.params.sid).fetch();
     res.json({ sid: message.sid, status: message.status });
   } catch (err) {
-    console.error(`❌ Failed to fetch status from Twilio:`, err.message);
-    res.status(500).json({ status: 'unknown', error: err.message });
+    console.error('❌ Fetch status failed:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
+// ✅ Load inbox messages from Firebase
 app.get('/inbox', (req, res) => {
-  res.json(inboxMessages);
-});
-
-app.post('/reply', async (req, res) => {
-  const { to, message } = req.body;
-  if (!to || !message) {
-    return res.status(400).json({ success: false, error: "Missing 'to' or 'message'" });
-  }
-
-  const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-
-  try {
-    const sent = await client.messages.create({
-      from: whatsappNumber,
-      to: formattedTo,
-      body: message
+  db.ref('inboxMessages')
+    .once('value')
+    .then(snapshot => {
+      const messages = snapshot.val() || {};
+      const sorted = Object.values(messages).sort((a, b) => new Date(b.time) - new Date(a.time));
+      res.json(sorted);
+    })
+    .catch(err => {
+      console.error('❌ Inbox fetch failed:', err.message);
+      res.status(500).json({ error: 'Inbox fetch failed' });
     });
-    console.log('✅ Freeform reply sent:', sent.sid);
-    res.json({ success: true, sid: sent.sid });
-  } catch (error) {
-    console.error('❌ Error sending freeform reply:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
 });
 
+// ✅ Serve frontend
 app.use(express.static(path.join(__dirname)));
-
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// ✅ Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-}).on('error', err => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use.`);
-  } else {
-    throw err;
-  }
+  console.log(`✅ Server listening on port ${PORT}`);
 });
