@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -288,6 +289,45 @@
   <p id="login-error" style="color: red; margin-top: 8px; display: none;">❌ Incorrect password</p>
 </div>
 -->
+
+<!-- ************************************************************************************************ -->
+
+<!-- ✅ Custom Confirmation Modal -->
+<div id="confirmationModal" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+">
+  <div style="
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 350px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  ">
+    <h3>📩 Confirm Send?</h3>
+    <p><strong>Order:</strong> <span id="confirmOrder"></span></p>
+    <p><strong>To:</strong> <span id="confirmPhone"></span></p>
+    <p><strong>Address:</strong> <span id="confirmAddress"></span></p>
+    <p><strong>Driver:</strong> <span id="confirmDriver"></span></p>
+    <div style="margin-top: 20px;">
+      <button onclick="confirmSend()" style="
+        background-color: #28a745; color: white; border: none;
+        padding: 10px 20px; border-radius: 5px; margin-right: 10px;
+        cursor: pointer;">✅ Send</button>
+      <button onclick="closeConfirmModal()" style="
+        background-color: #dc3545; color: white; border: none;
+        padding: 10px 20px; border-radius: 5px;
+        cursor: pointer;">❌ Cancel</button>
+    </div>
+  </div>
+</div>
+<!-- ************************************************************************************************ -->
 
 <!-- FLEX CONTAINER: Main Layout (Left + Right Side) -->
 <div style="display: flex; height: 100vh; overflow: hidden;">
@@ -1009,6 +1049,32 @@ function sendMessage() {
   const phone = document.getElementById('phone').value.trim();
   const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
   const customerAddress = document.getElementById('customerAddress').value.trim();
+  const driverValue = document.getElementById('driver').value;
+  const driverLabel = driverValue || 'No driver selected';
+
+  // Fill modal content
+  document.getElementById('confirmOrder').innerText = orderNumber || 'N/A';
+  document.getElementById('confirmPhone').innerText = phone || 'N/A';
+  document.getElementById('confirmAddress').innerText = customerAddress || 'N/A';
+  document.getElementById('confirmDriver').innerText = driverLabel;
+
+  // Show modal
+  document.getElementById('confirmationModal').style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmationModal').style.display = 'none';
+}
+
+function confirmSend() {
+  closeConfirmModal();
+  proceedWithSend();
+}
+
+function proceedWithSend() {
+  const phone = document.getElementById('phone').value.trim();
+  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
+  const customerAddress = document.getElementById('customerAddress').value.trim();
   const etaValue = document.getElementById("etaDropdown").value;
   const siteContactInput = document.getElementById('siteContact').value.trim();
   const siteContact = siteContactInput || phone;
@@ -1017,7 +1083,7 @@ function sendMessage() {
   const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
   const deliveryDate = document.getElementById('deliveryDate').value;
   const vehicleReg = document.getElementById('vehicleReg').value;
-  const lastLoadedSavedId = document.getElementById('lastLoadedSavedId').value; // ✅ new field
+  const lastLoadedSavedId = document.getElementById('lastLoadedSavedId').value;
 
   const responseText = document.getElementById('response');
   const loading = document.getElementById('loading');
@@ -1025,7 +1091,6 @@ function sendMessage() {
   responseText.style.color = "black";
   responseText.innerHTML = "Sending... ⏳";
 
-  // Extract driver name and number
   let driverName = '';
   let driverPhone = '';
   const driverValue = document.getElementById('driver').value;
@@ -1042,10 +1107,9 @@ function sendMessage() {
     siteContact,
     vehicleReg,
     templateSid,
-    driver: driverValue // Send full driver string
+    driver: driverValue
   };
 
-  // ✅ Only save to 'savedLater' if not loaded from a saved entry
   if (!lastLoadedSavedId) {
     const entry = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
@@ -1064,15 +1128,10 @@ function sendMessage() {
     };
 
     firebase.database().ref('savedLater').push(entry)
-      .then(() => {
-        console.log("✅ Saved to 'savedLater' before sending:", orderNumber);
-      })
-      .catch(err => {
-        console.error("❌ Failed to save to 'savedLater':", err);
-      });
+      .then(() => console.log("✅ Saved to 'savedLater' before sending:", orderNumber))
+      .catch(err => console.error("❌ Failed to save to 'savedLater':", err));
   }
 
-  // ✅ Proceed to send WhatsApp messages
   fetch('https://delivery-notification.onrender.com/send-message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1085,7 +1144,6 @@ function sendMessage() {
       console.log("✅ Sent to customer:", data.sid);
       saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
 
-      // Save driver's message if returned
       if (data.driverSid) {
         console.log("✅ Sent to driver:", data.driverSid);
         saveHistory(
@@ -1104,9 +1162,7 @@ function sendMessage() {
 
       responseText.style.color = "green";
       responseText.innerHTML = "Messages sent ✅";
-      setTimeout(() => {
-        responseText.innerHTML = "";
-      }, 3000);
+      setTimeout(() => responseText.innerHTML = "", 3000);
     })
     .catch(err => {
       console.error("❌ Error:", err.message);
@@ -1118,7 +1174,6 @@ function sendMessage() {
       loadHistory();
       displaySavedLater();
       clearForm();
-      // ✅ Reset form-loaded tracking
       loadedFromSaved = false;
       document.getElementById('lastLoadedSavedId').value = '';
     });
@@ -1698,8 +1753,8 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 16/05/25 1537 lines of code
-// version 20250516
+//fully working 27/05/25 1762 lines of code
+// version 20250527
     </script>
     
 
