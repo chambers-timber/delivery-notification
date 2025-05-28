@@ -311,6 +311,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   ">
     <h3>📩 Confirm Send?</h3>
+    <p><strong>Template:</strong> <span id="confirmTemplate"></span></p> <!-- ✅ NEW LINE -->
     <p><strong>Order:</strong> <span id="confirmOrder"></span></p>
     <p><strong>To:</strong> <span id="confirmPhone"></span></p>
     <p><strong>Address:</strong> <span id="confirmAddress"></span></p>
@@ -1052,15 +1053,20 @@ function sendMessage() {
   const driverValue = document.getElementById('driver').value;
   const driverLabel = driverValue || 'No driver selected';
 
-  // Fill modal content
+  const templateDropdown = document.getElementById('messageTemplate');
+  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
+
+  // ✅ Fill modal content
   document.getElementById('confirmOrder').innerText = orderNumber || 'N/A';
   document.getElementById('confirmPhone').innerText = phone || 'N/A';
   document.getElementById('confirmAddress').innerText = customerAddress || 'N/A';
   document.getElementById('confirmDriver').innerText = driverLabel;
+  document.getElementById('confirmTemplate').innerText = templateLabel; // ✅ Add this here
 
-  // Show modal
+  // ✅ Show modal
   document.getElementById('confirmationModal').style.display = 'flex';
 }
+
 
 function closeConfirmModal() {
   document.getElementById('confirmationModal').style.display = 'none';
@@ -1298,10 +1304,6 @@ function formatNameAndPhone() {
 
 
 
-
-
-
-
 function saveForLater() {
   const phone = document.getElementById('phone').value.trim();
   const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
@@ -1356,7 +1358,6 @@ function saveForLater() {
       alert("Failed to save. Please check your connection or Firebase rules.");
     });
 }
-
 
 let lastDeletedHistory = null; // Global backup
 
@@ -1443,9 +1444,9 @@ function undoClearHistory() {
     });
 }
 
-
 function displaySavedLater() {
   const container = document.getElementById('saved-for-later');
+  const scrollPos = container.scrollTop; // ✅ Save scroll position
   container.innerHTML = '<div style="color: gray; font-style: italic;">Loading...</div>';
 
   firebase.database().ref('savedLater').once('value')
@@ -1498,7 +1499,6 @@ function displaySavedLater() {
               }
             }
 
-            // ✅ Attempt to match status from message history
             let status = '';
             const match = messageHistory.find(h =>
               h.messageSid &&
@@ -1566,6 +1566,8 @@ function displaySavedLater() {
             row.appendChild(deleteBtn);
             container.appendChild(row);
           });
+
+          container.scrollTop = scrollPos; // ✅ Restore scroll position
         })
         .catch(err => {
           console.error("❌ Error loading messageHistory from Firebase:", err);
@@ -1577,6 +1579,7 @@ function displaySavedLater() {
       container.innerHTML = `<div style="color: red;">Error loading saved entries: ${error.message}</div>`;
     });
 }
+
 
 
 function printSavedLater() {
@@ -1753,8 +1756,9 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 27/05/25 1762 lines of code
-// version 20250527
+//fully working 16/05/25 1766 lines of code
+// version 20250528
+// last update - message template iD added to send confirmation preview
     </script>
     
 
