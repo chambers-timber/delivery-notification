@@ -1604,7 +1604,7 @@ function printSavedLater() {
           <ul style="font-family: Arial; font-size: 12px;">
       `;
 
-      saved.forEach(item => {
+      saved.forEach((item, index) => {
         const order = item.orderNumber || 'N/A';
         const address = item.customerAddress || 'N/A';
         const contact = item.siteContact || 'N/A';
@@ -1623,7 +1623,7 @@ function printSavedLater() {
 
         html += `
           <li style="margin-bottom: 4px; line-height: 1.6;">
-            Order: ${order} | ${address} | ${contact} | ${date}
+            ${index + 1}. Order: ${order} | ${address} | ${contact} | ${date}
           </li>
           <hr style="border: 1px solid black; margin: 10px 0;">
         `;
@@ -1646,6 +1646,7 @@ function printSavedLater() {
       alert("Failed to print saved entries.");
     });
 }
+
 
 
 function loadSavedEntry(orderNumber, phone) {
