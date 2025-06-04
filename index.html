@@ -220,7 +220,7 @@
             margin-left: auto;
             margin-right: 550px;
 }
- 
+
 
         </style>
 
@@ -919,19 +919,13 @@ function loadHistory() {
 
       historyList.innerHTML = '';
 
-      const items = Object.entries(data).map(([firebaseId, entry]) => ({ ...entry, firebaseId }));
-      items.sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0));
+      const items = Object.entries(data)
+        .map(([firebaseId, entry]) => ({ ...entry, firebaseId }))
+        .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0)) // oldest first, reverse if needed
 
-      // Group messages by base order number
-      const grouped = {};
+        .reverse(); // ✅ newest first at top
+
       items.forEach(item => {
-        const baseOrder = item.orderNumber.replace(' (Driver)', '').trim().toUpperCase();
-        if (!grouped[baseOrder]) grouped[baseOrder] = [];
-        grouped[baseOrder].push(item);
-      });
-
-      // Render each group
-      Object.entries(grouped).forEach(([baseOrder, messages]) => {
         const entry = document.createElement('li');
         entry.style.display = 'flex';
         entry.style.alignItems = 'center';
@@ -944,29 +938,36 @@ function loadHistory() {
         iconsDiv.style.display = 'flex';
         iconsDiv.style.gap = '3px';
 
-        let sharedMessage = messages[0];
-
-        // ✅ New logic: Only show one ✅ for delivered, one ✅ for read
-        const hasDelivered = messages.some(msg => msg.status?.toLowerCase() === 'delivered' || msg.status?.toLowerCase() === 'read');
-        const hasRead = messages.some(msg => msg.status?.toLowerCase() === 'read');
-
-        if (hasDelivered) {
+        const status = item.status?.toLowerCase() || '';
+        if (status === 'read') {
+          const readIcon = document.createElement('span');
+          readIcon.textContent = '✅✅';
+          readIcon.style.color = 'black';
+          iconsDiv.appendChild(readIcon);
+        } else if (status === 'delivered') {
           const deliveredIcon = document.createElement('span');
           deliveredIcon.textContent = '✅';
           deliveredIcon.style.color = 'green';
           iconsDiv.appendChild(deliveredIcon);
+        } else if (status === 'sent') {
+          const sentIcon = document.createElement('span');
+          sentIcon.textContent = '📨';
+          sentIcon.style.color = 'blue';
+          iconsDiv.appendChild(sentIcon);
+        } else {
+          const pendingIcon = document.createElement('span');
+          pendingIcon.textContent = '⏳';
+          pendingIcon.style.color = 'gray';
+          iconsDiv.appendChild(pendingIcon);
         }
 
-        if (hasRead) {
-          const readIcon = document.createElement('span');
-          readIcon.textContent = '✅';
-          readIcon.style.color = 'black';
-          iconsDiv.appendChild(readIcon);
+        // ✅ Highlight order number and "(DRIVER)" only
+        let orderDisplay = item.orderNumber || 'N/A';
+        if (orderDisplay.toLowerCase().includes('(driver)')) {
+          orderDisplay = `<span style="color:red; font-weight:bold;">${orderDisplay}</span>`;
+        } else {
+          orderDisplay = `<strong>${orderDisplay}</strong>`;
         }
-
-        // Use customer message as default for display
-        const customerMsg = messages.find(m => !m.orderNumber.includes('(Driver)'));
-        if (customerMsg) sharedMessage = customerMsg;
 
         const info = document.createElement('div');
         info.style.flex = '1';
@@ -974,14 +975,14 @@ function loadHistory() {
         info.style.textOverflow = 'ellipsis';
         info.style.whiteSpace = 'nowrap';
         info.innerHTML = `
-          <strong>${baseOrder}</strong> |
-          ETA: ${sharedMessage.eta || 'TBC'} |
-          ${sharedMessage.templateLabel?.replace(' (Driver)', '') || ''} |
-          ${sharedMessage.customerAddress || 'N/A'} |
-          ${sharedMessage.siteContact || 'N/A'} |
-          ${sharedMessage.deliveryDate || ''} |
-          Driver: ${sharedMessage.driverName || 'N/A'} |
-          Time: ${sharedMessage.timeSent || ''}
+          ${orderDisplay} |
+          ETA: ${item.eta || 'TBC'} |
+          ${item.templateLabel?.replace(' (Driver)', '') || 'N/A'} |
+          ${item.customerAddress || 'N/A'} |
+          ${item.siteContact || 'N/A'} |
+          ${item.deliveryDate || ''} |
+          Driver: ${item.driverName || 'N/A'} |
+          Time: ${item.timeSent || ''}
         `;
 
         const deleteBtn = document.createElement('button');
@@ -991,14 +992,12 @@ function loadHistory() {
         deleteBtn.style.cursor = 'pointer';
         deleteBtn.style.fontSize = '12px';
         deleteBtn.style.flex = '0';
-        deleteBtn.onclick = () => {
-          messages.forEach(msg => deleteHistoryEntry(msg.firebaseId));
-        };
+        deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
 
         entry.appendChild(iconsDiv);
         entry.appendChild(info);
         entry.appendChild(deleteBtn);
-        historyList.prepend(entry);
+        historyList.appendChild(entry);
       });
     })
     .catch(err => {
@@ -1756,9 +1755,8 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 16/05/25 1766 lines of code
-// version 20250528
-// last update - message template iD added to send confirmation preview
+//fully working 16/05/25 1537 lines of code
+// version 20250516
     </script>
     
 
