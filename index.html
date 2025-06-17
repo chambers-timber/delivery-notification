@@ -485,7 +485,19 @@
 
  <!-- ORDER HISTORY TAB -->
 <div id="historyTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
-  <h3>📜 Order History</h3>
+ <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
+  <h3 style="margin: 0; font-size: 16px;">📜 Order History</h3>
+  <input type="text" id="historySearchInput" placeholder="🔍 Search by Order Number..." oninput="filterHistoryByOrder()" style="
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    max-width: 240px;
+  ">
+</div>
+
+
 
   <!-- History list container -->
   <ul id="history-list" class="history-list" style="
@@ -591,6 +603,9 @@
  
 
 <script>
+
+ let allHistoryItems = []; // stores full Firebase-loaded history
+ 
 
 function showTab(id) {
   document.querySelectorAll('.tab-section').forEach(tab => tab.style.display = 'none');
@@ -945,12 +960,13 @@ function loadHistory() {
 
       historyList.innerHTML = '';
 
-      const allItems = Object.entries(data)
-        .map(([firebaseId, entry]) => ({ ...entry, firebaseId }))
-        .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0))
-        .reverse(); // newest first
+     allHistoryItems = Object.entries(data)
+  .map(([firebaseId, entry]) => ({ ...entry, firebaseId }))
+  .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0))
+  .reverse();
+ // newest first
 
-      const visibleItems = allItems.slice(0, historyLimit);
+      const visibleItems = allHistoryItems.slice(0, historyLimit);
 
       visibleItems.forEach(item => {
         const entry = document.createElement('li');
@@ -1015,7 +1031,7 @@ function loadHistory() {
       });
 
       const loadMoreBtn = document.getElementById('load-more-btn');
-      if (allItems.length > historyLimit) {
+      if (allHistoryItems.length > historyLimit) {
         loadMoreBtn.style.display = 'block';
       } else {
         loadMoreBtn.style.display = 'none';
@@ -1033,6 +1049,91 @@ function loadMoreHistory() {
   loadHistory();
 }
 
+function filterHistoryByOrder() {
+  const query = document.getElementById('historySearchInput').value.trim().toLowerCase();
+  const historyList = document.getElementById('history-list');
+  historyList.innerHTML = '';
+
+  const filtered = allHistoryItems
+    .filter(item => item.orderNumber?.toLowerCase().includes(query))
+    .slice(0, historyLimit);
+
+  if (filtered.length === 0) {
+    historyList.innerHTML = '<li style="color: gray;">No matching results.</li>';
+    document.getElementById('load-more-btn').style.display = 'none';
+    return;
+  }
+
+  filtered.forEach(item => {
+    const entry = document.createElement('li');
+    entry.style.display = 'flex';
+    entry.style.alignItems = 'center';
+    entry.style.justifyContent = 'space-between';
+    entry.style.gap = '10px';
+    entry.style.fontSize = '13px';
+
+    const iconsDiv = document.createElement('div');
+    iconsDiv.style.minWidth = '60px';
+    iconsDiv.style.display = 'flex';
+    iconsDiv.style.gap = '3px';
+
+    const status = item.status?.toLowerCase() || '';
+    let icon = '⏳', color = 'gray';
+    if (status === 'sent') { icon = '📨'; color = 'blue'; }
+    if (status === 'delivered') { icon = '✅'; color = 'green'; }
+    if (status === 'read') { icon = '✅✅'; color = 'black'; }
+
+    const statusSpan = document.createElement('span');
+    statusSpan.textContent = icon;
+    statusSpan.style.color = color;
+    iconsDiv.appendChild(statusSpan);
+
+    let orderDisplay = item.orderNumber || 'N/A';
+    if (orderDisplay.toLowerCase().includes('(driver)')) {
+      orderDisplay = `<span style="color:red; font-weight:bold;">${orderDisplay}</span>`;
+    } else {
+      orderDisplay = `<strong>${orderDisplay}</strong>`;
+    }
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    info.style.overflow = 'hidden';
+    info.style.textOverflow = 'ellipsis';
+    info.style.whiteSpace = 'nowrap';
+    info.innerHTML = `
+      ${orderDisplay} |
+      ETA: ${item.eta || 'TBC'} |
+      ${item.templateLabel?.replace(' (Driver)', '') || 'N/A'} |
+      ${item.customerAddress || 'N/A'} |
+      ${item.siteContact || 'N/A'} |
+      ${item.deliveryDate || ''} |
+      Driver: ${item.driverName || 'N/A'} |
+      Time: ${item.timeSent || ''}
+    `;
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '🗑️';
+    deleteBtn.style.background = 'transparent';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.fontSize = '12px';
+    deleteBtn.style.flex = '0';
+    deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
+
+    entry.appendChild(iconsDiv);
+    entry.appendChild(info);
+    entry.appendChild(deleteBtn);
+    historyList.appendChild(entry);
+  });
+
+  // Show/hide Load More based on whether more match the search
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  if (filtered.length >= historyLimit) {
+    loadMoreBtn.style.display = 'block';
+  } else {
+    loadMoreBtn.style.display = 'none';
+  }
+}
 
 
 function deleteHistoryEntry(firebaseId) {
@@ -1783,7 +1884,7 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 17/06/25 1792 lines of code
+//fully working 17/06/25 1893 lines of code
 // version 20250516
     </script>
     
