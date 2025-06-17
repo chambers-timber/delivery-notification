@@ -486,8 +486,32 @@
  <!-- ORDER HISTORY TAB -->
 <div id="historyTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
   <h3>📜 Order History</h3>
-  <ul id="history-list" class="history-list" style="max-height: 624px; overflow-y: auto; border: 1px solid #ccc; background: #f9f9f9; list-style-type: none;"></ul>
-  
+
+  <!-- History list container -->
+  <ul id="history-list" class="history-list" style="
+    max-height: 624px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    list-style-type: none;
+  "></ul>
+
+  <!-- ✅ Load More Button -->
+  <button id="load-more-btn" onclick="loadMoreHistory()" style="
+    margin-top: 10px;
+    width: 100%;
+    background-color: #007bff;
+    color: white;
+    padding: 8px;
+    font-size: 13px;
+    border: none;
+    border-radius: 5px;
+    display: none;
+  ">
+    ⬇️ Load More
+  </button>
+
+  <!-- Clear All Button -->
   <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
     <button onclick="clearOrderHistory()" style="
       background-color: #dc3545;
@@ -502,6 +526,7 @@
     </button>
   </div>
 </div>
+
 
 
 
@@ -902,6 +927,7 @@ if (driverPhone) {
 
 
 
+let historyLimit = 50; // Start by showing only 50
 
 
 
@@ -919,13 +945,14 @@ function loadHistory() {
 
       historyList.innerHTML = '';
 
-      const items = Object.entries(data)
+      const allItems = Object.entries(data)
         .map(([firebaseId, entry]) => ({ ...entry, firebaseId }))
-        .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0)) // oldest first, reverse if needed
+        .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0))
+        .reverse(); // newest first
 
-        .reverse(); // ✅ newest first at top
+      const visibleItems = allItems.slice(0, historyLimit);
 
-      items.forEach(item => {
+      visibleItems.forEach(item => {
         const entry = document.createElement('li');
         entry.style.display = 'flex';
         entry.style.alignItems = 'center';
@@ -939,29 +966,16 @@ function loadHistory() {
         iconsDiv.style.gap = '3px';
 
         const status = item.status?.toLowerCase() || '';
-        if (status === 'read') {
-          const readIcon = document.createElement('span');
-          readIcon.textContent = '✅✅';
-          readIcon.style.color = 'black';
-          iconsDiv.appendChild(readIcon);
-        } else if (status === 'delivered') {
-          const deliveredIcon = document.createElement('span');
-          deliveredIcon.textContent = '✅';
-          deliveredIcon.style.color = 'green';
-          iconsDiv.appendChild(deliveredIcon);
-        } else if (status === 'sent') {
-          const sentIcon = document.createElement('span');
-          sentIcon.textContent = '📨';
-          sentIcon.style.color = 'blue';
-          iconsDiv.appendChild(sentIcon);
-        } else {
-          const pendingIcon = document.createElement('span');
-          pendingIcon.textContent = '⏳';
-          pendingIcon.style.color = 'gray';
-          iconsDiv.appendChild(pendingIcon);
-        }
+        let icon = '⏳', color = 'gray';
+        if (status === 'sent') { icon = '📨'; color = 'blue'; }
+        if (status === 'delivered') { icon = '✅'; color = 'green'; }
+        if (status === 'read') { icon = '✅✅'; color = 'black'; }
 
-        // ✅ Highlight order number and "(DRIVER)" only
+        const statusSpan = document.createElement('span');
+        statusSpan.textContent = icon;
+        statusSpan.style.color = color;
+        iconsDiv.appendChild(statusSpan);
+
         let orderDisplay = item.orderNumber || 'N/A';
         if (orderDisplay.toLowerCase().includes('(driver)')) {
           orderDisplay = `<span style="color:red; font-weight:bold;">${orderDisplay}</span>`;
@@ -999,11 +1013,24 @@ function loadHistory() {
         entry.appendChild(deleteBtn);
         historyList.appendChild(entry);
       });
+
+      const loadMoreBtn = document.getElementById('load-more-btn');
+      if (allItems.length > historyLimit) {
+        loadMoreBtn.style.display = 'block';
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
     })
     .catch(err => {
       console.error("❌ Failed to load history:", err);
       historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
     });
+}
+
+
+function loadMoreHistory() {
+  historyLimit += 10;
+  loadHistory();
 }
 
 
@@ -1756,7 +1783,7 @@ function clearSavedLater() {
 }*/
 
 
-//fully working 16/05/25 1537 lines of code
+//fully working 17/06/25 1792 lines of code
 // version 20250516
     </script>
     
