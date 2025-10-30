@@ -1926,7 +1926,7 @@ function clearSavedLater() {
         alert("Failed to clear saved entries. Please check your internet or Firebase rules.");
       });
   }
-}
+} 
 
 
 /*function checkPassword() {
@@ -1940,17 +1940,18 @@ function clearSavedLater() {
   }
 }*/
 // --- DELIVERY CAPACITY BAR ---
-function setCapacity(color) {
+// --- DELIVERY CAPACITY BAR ---
+// UI-only updater (does NOT write to Firebase)
+function applyCapacityUI(color) {
   const dot = document.getElementById('capDot');
   const text = document.getElementById('capText');
   const btns = document.querySelectorAll('.cap-btn');
 
-  // Reset opacity on all buttons
+  // reset button opacity
   btns.forEach(b => b.style.opacity = '0.5');
   const active = document.querySelector(`.cap-btn[data-color="${color}"]`);
   if (active) active.style.opacity = '1';
 
-  // Define messages + colours
   let message = '';
   let dotColor = '';
 
@@ -1971,18 +1972,56 @@ function setCapacity(color) {
     message = 'Green = Plenty of slots remaining';
   }
 
-  dot.style.background = dotColor;
+  dot.style.backgroundColor = dotColor; // solid fill
   text.textContent = message;
-
-  // Save choice
-  localStorage.setItem('capacityLight', color);
 }
 
+// Called by your four buttons. Updates UI immediately, then saves to Firebase.
+function setCapacity(color) {
+  applyCapacityUI(color);
+
+  // ✅ Persist to Firebase so ALL browsers stay in sync
+  database.ref('ui/capacityLight').set({
+    color,
+    updatedAt: firebase.database.ServerValue.TIMESTAMP
+  });
+}
+
+// One-time load: read the saved colour from Firebase (seed if empty)
 function restoreCapacity() {
-  const saved = localStorage.getItem('capacityLight') || 'green';
-  setCapacity(saved);
+  database.ref('ui/capacityLight/color').once('value')
+    .then(snap => {
+      const saved = snap.val() || 'green';
+      applyCapacityUI(saved);
+
+      // Seed the path if it didn't exist yet
+      if (!snap.val()) {
+        return database.ref('ui/capacityLight').set({
+          color: 'green',
+          updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+    })
+    .catch(() => {
+      // Fallback UI if Firebase read fails
+      applyCapacityUI('green');
+    });
 }
-window.addEventListener('load', restoreCapacity);
+
+// Live sync: if someone else changes the colour, update this page instantly
+function startCapacitySync() {
+  database.ref('ui/capacityLight/color').on('value', snap => {
+    const color = snap.val();
+    if (color) applyCapacityUI(color); // UI-only, no DB write (prevents loops)
+  });
+}
+
+// Initialise on page load
+window.addEventListener('load', () => {
+  restoreCapacity();
+  startCapacitySync();
+});
+
 
 
 
