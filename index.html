@@ -793,12 +793,84 @@ function showTab(id) {
 
 
   </script>
-  
+  <!-- 🔐 PIN Overlay for Capacity Control -->
+<div id="pinOverlay" style="
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  font-family: Arial, sans-serif;
+">
+  <div style="
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    width: 300px;
+  ">
+    <h3>🔒 Enter PIN to change status</h3>
+
+<input id="pinInput"
+       type="text"
+       inputmode="numeric"
+       maxlength="6"
+       autocomplete="one-time-code"
+       name="otp_pin"
+       autocorrect="off"
+       autocapitalize="off"
+       spellcheck="false"
+       readonly
+       onfocus="this.removeAttribute('readonly');"
+       placeholder="Enter PIN..."
+       style="padding:8px;width:80%;font-size:16px;margin-bottom:10px;-webkit-text-security:disc;text-security:disc;">
+
+<br>
+
+<!-- ✅ Submit + Cancel buttons -->
+<div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+  <button onclick="checkPin()" style="
+    background-color: #f5de20;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+  ">Submit</button>
+
+  <button onclick="cancelPinEntry()" style="
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+  ">Cancel</button>
+</div>
+
+<p id="pinError" style="color: red; display: none; margin-top: 8px;">❌ Incorrect PIN</p>
+
+  </div>
+</div>
+
+
     <script>
         let loadedFromSaved = false;
 
 
         let selectedNumber = null;
+
+function cancelPinEntry() {
+  // Hide overlay and clear any entered text or errors
+  document.getElementById('pinOverlay').style.display = 'none';
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinError').style.display = 'none';
+  window.pendingColor = null; // clear any pending action
+}
+
 
 function selectMessage(el) {
   // Deselect all
@@ -1977,16 +2049,26 @@ function applyCapacityUI(color) {
 }
 
 // Called by your four buttons. Updates UI immediately, then saves to Firebase.
+// Called by your four buttons
 function setCapacity(color) {
-  applyCapacityUI(color);
+  // ✅ If not unlocked, show PIN overlay
+  if (!window.capacityUnlocked) {
+  document.getElementById('pinInput').value = ''; // ✅ always clear field
+  document.getElementById('pinOverlay').style.display = 'flex';
+  window.pendingColor = color; // store the button choice temporarily
+  return;
+}
 
-  // ✅ Persist to Firebase so ALL browsers stay in sync
+
+  // If unlocked, update normally
+  applyCapacityUI(color);
   database.ref('ui/capacityLight').set({
     color,
     updatedAt: firebase.database.ServerValue.TIMESTAMP
   });
 }
 
+ 
 // One-time load: read the saved colour from Firebase (seed if empty)
 function restoreCapacity() {
   database.ref('ui/capacityLight/color').once('value')
@@ -2015,6 +2097,30 @@ function startCapacitySync() {
     if (color) applyCapacityUI(color); // UI-only, no DB write (prevents loops)
   });
 }
+
+// --- PIN protection logic ---
+const correctPin = "2238"; // 🔑 change this to your private PIN
+
+function checkPin() {
+  const entered = document.getElementById('pinInput').value.trim();
+  const error = document.getElementById('pinError');
+
+  if (entered === correctPin) {
+    // ✅ Unlock and apply pending change if any
+    window.capacityUnlocked = true;
+    document.getElementById('pinOverlay').style.display = 'none';
+    error.style.display = 'none';
+
+    if (window.pendingColor) {
+      setCapacity(window.pendingColor);
+      window.pendingColor = null;
+    }
+  } else {
+    // ❌ Wrong PIN → reload the page immediately
+    location.reload();
+  }
+}
+
 
 // Initialise on page load
 window.addEventListener('load', () => {
