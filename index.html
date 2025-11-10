@@ -1,2140 +1,263 @@
- 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chambers Timber Delivery Notification System</title>
-    <style>
+// 📦 FINAL server.js with driver support (cleaned)
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-service-account.json'); 
 
-      /* 🚦 Capacity Bar Buttons */
-.cap-btn {
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 2px solid #000;
-  font-weight: bold;
-  background: #f5de20;
-  cursor: pointer;
-  opacity: 0.5;
-  transition: 0.2s;
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://ct-delivery-notification-default-rtdb.europe-west1.firebasedatabase.app'
+});
+
+const db = admin.database();
+
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const twilio = require('twilio');
+const path = require('path');
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+console.log('🔐 TWILIO_SID:', process.env.TWILIO_SID);
+console.log('🔐 TWILIO_AUTH_TOKEN:', process.env.TWILIO_AUTH_TOKEN ? '[HIDDEN]' : 'MISSING');
+
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = twilio(accountSid, authToken);
+const whatsappNumber = 'whatsapp:+447706802841';
+
+const inboxMessages = [];
+const orderConfirmationTemplateSid = 'HXb930591ce15ddf1213379a48a92349e0';
+
+function formatPhoneNumber(phone) {
+  phone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
+  if (phone.startsWith('0')) return '+44' + phone.slice(1);
+  if (phone.startsWith('44') && !phone.startsWith('+')) return '+' + phone;
+  if (!phone.startsWith('+')) return '+' + phone;
+  return phone;
 }
-.cap-btn:hover {
-  opacity: 1;
-  background: #000;
-  color: #fff;
-}
-
-        /* General Page Styling */
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #ffffff;
-            margin: 0;
-            padding: 0;
-            color: black;
-        }
-        
-        /* Banner Styling */
-        .banner {
-            background-color: #f5de20;
-            color: black;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px;
-            gap: 10px;
-        }
-        
-        .banner img {
-            height: 30px; /* reduced from 50px */
-        }
-        
-        .banner h1 {
-            font-size: 20px; /* reduced from 22px */
-            margin: 0;
-        }
-        
-        /* Main Layout - Two Columns */
-        .main-container {
-            display: flex;
-            justify-content: flex-start;
-            max-width: 900px; /* reduced from 900px */
-            margin: 10px auto;
-            gap: 10px;
-        }
-        
-        /* History Section */
-        .history {
-            background: #f5de20;
-            padding: 10px;
-            width: 35%; /* reduced from 30% */
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.5s ease-in-out;
-            color: black;
-        }
-        
-        .history h3 {
-            border-bottom: 2px solid black;
-            padding-bottom: 1px;
-            text-align: center;
-            font-size: 15px;
-        }
-        
-        /* History List */
-        .history-list {
-            list-style-type: none;
-            padding: 0;
-            margin-top: 10px;
-            max-height: 750px;
-            overflow-y: auto;
-        }
-        
-        .history-list li {
-            background: #ffffff;
-            padding: 8px;
-            margin-bottom: 5px;
-            border-left: 4px solid black;
-            font-size: 13px;
-            text-align: left;
-            border-radius: 5px;
-            transition: background 0.3s;
-            color: black;
-        }
-        
-        .history-list li:hover {
-            background: #fafaf8;
-        }
-        
-        /* Notification Form */
-        .container {
-            background: #b8b3b3;
-            padding: 18px; /* reduced from 25px */
-            width: 60%; /* increased slightly */
-            border-radius: 8px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            color: black;
-        }
-        
-        /* Form Elements */
-        label {
-            font-weight: bold;
-            font-size: 16px; /* added for tighter layout */
-            display: block;
-            margin-top: 1px;
-            color: rgb(10, 1, 1);
-        }
-        
-        input, select, textarea {
-            width: 98%;
-            padding: 5px;
-            margin-top: 5px;
-            border: 2px solid #222220;
-            border-radius: 10px;
-            font-size: 15px;
-            background-color: white;
-            color: black;
-            
-        }
-        #customerAddress {
-        width: 80%;
-        }
-        input:focus, select:focus, textarea:focus {
-            border-color: #f5de20;
-        }
-        
-        /* Message Preview */
-        textarea {
-            height: 190px;
-            resize: vertical;
-            margin-top: 10px;
-            background-color: white;
-            color: black;
-            font-size: 13px;
-            padding: 5px;
-        }
-        
-        /* Send Button */
-        button {
-            background-color: #f5de20;
-            color: black;
-            border: none;
-            padding: 11px;
-            cursor: pointer;
-            width: 100%;
-            border-radius: 5px;
-            font-size: 16px; /* reduced from 18px */
-            transition: background 0.3s ease, transform 0.2s;
-            margin-top: 15px;
-        }
-        
-        button:hover {
-            background-color: black;
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        /* Loading Animation */ 
-        #loading {
-            text-align: center;
-            font-size: 16px; /* reduced from 18px */
-            margin-top: 10px;
-            color: #f5de20;
-            display: none;
-        }
-        
-        /* Success Popup */
-        #success-popup {
-            position: fixed;
-            top: 15%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #f5de20;
-            color: black;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
-            display: none;
-        }
-        
-        /* Clear History Button */
-        .clear-history-btn {
-            background-color: rgb(240, 21, 21);
-            color: white;
-            border: none;
-            padding: 10px;
-            cursor: pointer;
-            width: 100%;
-            border-radius: 5px;
-            font-size: 15px;
-            margin-top: 10px;
-            transition: background 0.3s ease, transform 0.2s;
-        }
-        
-        .clear-history-btn:hover {
-            background-color: white;
-            color: black;
-            transform: scale(1.05);
-        }
-        
-        /* Success Message Styling */
-        #success-message {
-            text-align: center;
-            font-size: 15px;
-            font-weight: bold;
-            color: #28a745;
-            margin-bottom: 10px;
-            display: none;
-        }
-        .top-banner {
-            text-align: right;
-            background-color: #ffffff;
-         
-        }
-
-        .top-banner img {
-            max-width: 27%;
-            height: auto;
-            display: block;
-            margin-left: auto;
-            margin-right: 550px;
-}
-
-
-        </style>
-
-        <!-- Firebase App (core SDK) -->
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-
-<!-- Realtime Database -->
-<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
-
-<script>
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyB7SOflbN-tHTsr7qi20AarWfsoaDJR7Xc",
-    authDomain: "ct-delivery-notification.firebaseapp.com",
-    databaseURL: "https://ct-delivery-notification-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "ct-delivery-notification",
-    storageBucket: "ct-delivery-notification.firebasestorage.app",
-    messagingSenderId: "487475599853",
-    appId: "1:487475599853:web:2fad921d97dbacebd76fe4",
-    measurementId: "G-PVHMPPXZ2R"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
-</script>
-
-
-        
-</head>
-
-<!-- 🔐 LOGIN OVERLAY -->
-<!--  <div id="login-overlay" style="
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255, 255, 255, 0.98);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  font-family: Arial, sans-serif;
-">
-  <h2 style="margin-bottom: 10px;">Chambers Timber Admin Only Access</h2>
-  <input type="password" id="login-password" placeholder="Enter password..." style="
-    padding: 10px;
-    font-size: 16px;
-    width: 250px;
-    text-align: center;
-    border-radius: 6px;
-    border: 2px solid #ccc;
-  ">
-  <button onclick="checkPassword()" style="
-  margin-top: 10px;
-  padding: 6px 12px;
-  font-size: 16px;
-  width: 275px;
-  text-align: center;
-  border: none;
-  border-radius: 6px;
-  background-color: #f5de20;
-  color: black;
-  cursor: pointer;
-">Login</button>
-
-  <p id="login-error" style="color: red; margin-top: 8px; display: none;">❌ Incorrect password</p>
-</div>
--->
-
-<!-- ************************************************************************************************ -->
-
-<!-- ✅ Custom Confirmation Modal -->
-<div id="confirmationModal" style="
-  display: none;
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  z-index: 1000;
-  align-items: center;
-  justify-content: center;
-">
-  <div style="
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    width: 350px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  ">
-    <h3>📩 Confirm Send?</h3>
-    <p><strong>Template:</strong> <span id="confirmTemplate"></span></p> <!-- ✅ NEW LINE -->
-    <p><strong>Order:</strong> <span id="confirmOrder"></span></p>
-    <p><strong>To:</strong> <span id="confirmPhone"></span></p>
-    <p><strong>Address:</strong> <span id="confirmAddress"></span></p>
-    <p><strong>Driver:</strong> <span id="confirmDriver"></span></p>
-    <div style="margin-top: 20px;">
-      <button onclick="confirmSend()" style="
-        background-color: #28a745; color: white; border: none;
-        padding: 10px 20px; border-radius: 5px; margin-right: 10px;
-        cursor: pointer;">✅ Send</button>
-      <button onclick="closeConfirmModal()" style="
-        background-color: #dc3545; color: white; border: none;
-        padding: 10px 20px; border-radius: 5px;
-        cursor: pointer;">❌ Cancel</button>
-    </div>
-  </div>
-</div>
-<!-- ************************************************************************************************ -->
-
-<!-- FLEX CONTAINER: Main Layout (Left + Right Side) -->
-<div style="display: flex; height: 100vh; overflow: hidden;">
-
-    <!-- LEFT SIDE: Main Panel -->
-    <div style="width: 30%; min-width: 700px; padding: 20px; background-color: white; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.05);">
-      <!-- Success / Status Messages -->
-      <div id="loading" class="hidden">Sending... ⏳</div>
-      <p id="response" class="message"></p>
-      <div id="success-popup" class="hidden">✅ Message Sent Successfully!</div>
-  
-      <!-- SPLIT PANEL: History + Form -->
-      <div style="display: flex; gap: 30px;">
-        
-        <!-- NOTIFICATION FORM -->
-        <div class="container" style="flex: 2;">
-          <h2 style="margin-top: 0;">📩 WhatsApp Delivery Notification</h2>
-  
-          <!-- START: FORM FIELDS -->
-          <div style="display: flex; gap: 20px;">
-            <div style="flex: 1;">
-              <label for="phone">📞 Customer's Number:</label><br>
-              <input type="text" id="phone" onblur="formatCustomerNumber()" />
-            </div>
-            <div style="flex: 1;">
-              <label for="orderNumber">📦 Order Number:</label><br>
-              <input type="text" id="orderNumber" style="width: 95%;">
-            </div>
-          </div>
-  
-          <div style="display: flex; gap: 20px; margin-top: 10px;">
-            <div style="flex: 1;">
-              <label for="deliveryDate">📅 Delivery Date</label><br>
-              <input type="date" id="deliveryDate" style="width: 100%;">
-            </div>
-            <div style="flex: 1;">
-              <label for="siteContact">📞 Site Contact: </label><br>
-              <input type="text" id="siteContact" style="width: 95%;">
-            </div>
-          </div>
-  
-          <div style="margin-top: 10px;">
-            <label for="customerAddress">📍 Delivery Address:</label><br>
-            <input type="text" id="customerAddress" placeholder="397 Romford Rd, E7 8AB" style="width: 98%;" onblur="cleanAddressInput()">
-
-          </div>
-  
-          <div style="display: flex; gap: 20px; margin-top: 10px;">
-            <div style="flex: 2;">
-              <label for="messageTemplate">📝 Select Message:</label><br>
-              <select id="messageTemplate" onchange="updateMessage()" style="width: 100%;">
-                <option value="">Choose a template...</option>
-                <option value="HXe409d244b93e3dd70144789d2e797664">DELIVERY</option>
-                <option value="HXb930591ce15ddf1213379a48a92349e0">CONFIRMATION</option>
-                <option value="HXea334a5a136b808854eab2755556dd29">COLLECTION</option>
-              </select>
-            </div>
-            <div style="flex: 1;">
-              <label for="etaDropdown">⏱ ETA:</label><br>
-              <select id="etaDropdown" onchange="updateMessage()" style="width: 100%;">
-                <option value="">Select ETA...</option>
-                <option value="7:00am - 9:00am">7am - 9am</option>
-                <option value="8:00am - 10:00am">8am - 10am</option>
-                <option value="9:00am - 11:00am">9am - 11am</option>
-                <option value="10:00am - 12:00am">10am - 12pm</option>
-                <option value="11:00am - 1:00pm">11am - 1pm</option>
-                <option value="12:00pm - 2:00pm">12pm - 2pm</option>
-                <option value="1:00pm - 3:00pm">1pm - 3pm</option>
-                <option value="2:00pm - 4:00pm">2pm - 4pm</option>
-
-                <option value="7:00am - 8:00am">7am - 8am</option>
-                <option value="8:00am - 9:00am">8am - 9am</option>
-                <option value="9:00am - 10:00am">9am - 10am</option>
-                <option value="10:00am - 11:00am">10am - 11am</option>
-                <option value="11:00am - 12:00pm">11am - 12pm</option>
-                <option value="12:00pm - 1:00pm">12pm - 1pm</option>
-                <option value="1:00pm - 2:00pm">1pm - 2pm</option>
-                <option value="2:00pm - 3:00pm">2pm - 3pm</option>
-                <option value="3:00pm - 4:00pm">3pm - 4pm</option>
-                
-                <option value="7:00am - 12:00pm">7am - 12pm</option>
-                <option value="12:00pm - 4:00pm">12pm - 4pm</option>
-
-                <option value="AM">AM</option>
-                <option value="PM">PM</option>
-                <option value="Multidrop">Multidrop</option>
-              </select>
-            </div>
-          </div>
-  
-          <div style="margin-top: 10px;">
-            <label for="message">🖊️ Message Preview:</label><br>
-            <textarea id="message" readonly style="width: 98%; height: 80px;"></textarea>
-          </div>
-  
-          <div style="display: flex; gap: 20px; margin-top: 10px;">
-            <div style="flex: 1;">
-              <label for="driver">🚛 Select Driver:</label><br>
-              <select id="driver" style="width: 100%;">
-                <option value="">Choose a driver...</option>
-                <option value="Russel - +447415502238">Russel</option>
-                <option value="Ricky - +447825133669">Ricky</option>
-                <option value="Terry - +447939312736">Terry</option>
-                <option value="Jay - +447389176335">Jay</option>
-                <option value="John - +447914411167">John</option>
-                <option value="Michael - +447894802472">Michael</option> 
-              </select>
-            </div>
-            <div style="flex: 1;">
-              <label for="vehicleReg">🚗 Vehicle Type:</label><br>
-              <select id="vehicleReg" style="width: 100%;">
-                <option value="">Choose a vehicle...</option>
-                <option value="3.5 Ton Flatbed">3.5 Ton Flatbed</option>
-                <option value="18 Ton (HIAB)">18 Ton HIAB</option>
-              </select>
-            </div>
-          </div>
-  
-          <input type="hidden" id="lastLoadedSavedId" value="">
-
-
-          <input type="hidden" id="lastLoadedSavedId" value="">
-          <button type="button" onclick="sendMessage()" style="margin-top: 15px;">Send Notification</button>
-          <button onclick="saveForLater()" style="margin-top: 10px; background-color: #007bff; color: white;">🚚 Book In </button>
-          <button onclick="clearForm()" style="margin-top: 10px; background-color: #6c757d; color: white;">Clear Form</button>
-
-
-        </div>
-      </div>
-    </div>
-    <!-- END: FORM FIELDS -->
-
-   <!-- ************************************************************************************************ -->
-   <!-- RIGHT SIDE: Saved for Later + Inbox + Chat + Reply -->
-
-
-<!-- Right Panel with Tabbed Sections -->
-<!-- RIGHT PANEL -->
-<div style="width: 70%; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; padding: 20px; overflow: hidden;">
- 
- <!-- 🚦 DELIVERY CAPACITY BAR (Right-Aligned with Four Colours) -->
-<div id="capacityBar" style="
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  border-radius: 12px;
-  padding: 5px 5px;
-  margin-bottom: 2px;
-  width: fit-content;
-  margin-left: 20px;
-  font-family: Arial, sans-serif;
-">
-
-  <!-- Buttons -->
-  <div style="display: flex; gap: 20px; margin-right: 40px;">
-    <button class="cap-btn" data-color="green" onclick="setCapacity('green')">Green</button>
-    <button class="cap-btn" data-color="orange" onclick="setCapacity('orange')">Orange</button>
-    <button class="cap-btn" data-color="yellow" onclick="setCapacity('yellow')">Yellow</button>
-    <button class="cap-btn" data-color="red" onclick="setCapacity('red')">Red</button>
-  </div>
-
-  <!-- Status Indicator -->
-  <div style="display: flex; align-items: center; gap: 40px; font-weight: bold;">
-    <div id="capDot" style="
-      width: 40px;
-      height: 40px;
-      border-radius: 100%;
-      background: green;
-      border: 2px solid #000;
-    "></div>
-    <span id="capText">Green = Plenty of slots remaining</span>
-  </div>
-</div>
-
-
-
-  <!-- Tabs Header -->
-  <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-    <button onclick="showTab('savedTab')">🚚 Booked Deliveries</button>
-    <button onclick="showTab('historyTab')">📜 Order History</button>
-    <button onclick="showTab('inboxTab')">💬 Inbox & Chat</button>
-  </div>
-
-  <!-- SAVED ORDERS TAB -->
-  <div id="savedTab" class="tab-section" style="flex: 1; overflow-y: auto;">
-    <h3> 🚚 Booked Deliveries</h3>
-    <div id="saved-for-later" style="max-height: 590px; overflow-y: auto;">Loading...</div>
-    <div style="margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
-      <button onclick="printSavedLater()" style="background-color: green; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;">🖨️ Print</button>
-      <button onclick="clearSavedLater()" style="background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer;">🗑️ Clear All</button>
-    </div>
-  </div>
-
- <!-- ORDER HISTORY TAB -->
-<div id="historyTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
- <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
-  <h3 style="margin: 0; font-size: 16px;">📜 Order History</h3>
-  <input type="text" id="historySearchInput" placeholder="🔍 Search by Order Number..." oninput="filterHistoryByOrder()" style="
-    flex: 1;
-    padding: 6px 10px;
-    font-size: 13px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    max-width: 240px;
-  ">
-</div>
-
-
-
-  <!-- History list container -->
-  <ul id="history-list" class="history-list" style="
-    max-height: 540px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    background: #f9f9f9;
-    list-style-type: none;
-  "></ul>
-
-  <!-- ✅ Load More Button -->
-  <button id="load-more-btn" onclick="loadMoreHistory()" style="
-    margin-top: 10px;
-    width: 100%;
-    background-color: #007bff;
-    color: white;
-    padding: 8px;
-    font-size: 13px;
-    border: none;
-    border-radius: 5px;
-    display: none;
-  ">
-    ⬇️ Load More
-  </button>
-
-  <!-- Clear All Button -->
-  <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-    <button onclick="clearOrderHistory()" style="
-      background-color: #dc3545;
-      color: white;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 5px;
-      font-size: 13px;
-      cursor: pointer;
-    ">
-      🗑️ Clear All
-    </button>
-  </div>
-</div>
-
-
-
-
-  <!-- Inbox and Chat Tab -->
-<div id="inboxTab" class="tab-section" style="display: none; flex: 1; overflow-y: auto;">
-
-  <!-- Inbox -->
-  <h3 style="margin-bottom: 10px;">📥 Inbox</h3>
-  <div id="inbox" style="
-    background-color: #ffffff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    padding: 10px;
-    font-size: 13px;
-    max-height: 150px;
-    overflow-y: auto;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-  "></div>
-
-  <!-- Chat Thread -->
-  <h3 style="margin-bottom: 10px;">💬 Message Chat</h3>
-  <div id="chat-thread" style="
-    background-color: #ffffff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    padding: 10px;
-    font-size: 13px;
-    height: 150px;
-    overflow-y: auto;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 10px;
-  "></div>
-
-  <!-- Reply Input -->
-  <textarea id="replyMessage" placeholder="Type your reply here..." style="
-    width: 100%;
-    height: 80px;
-    font-size: 13px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    resize: vertical;
-    margin-bottom: 10px;
-  "></textarea>
-
-  <button onclick="addReply()" style="
-    width: 100%;
-    background-color: #007bff;
-    color: white;
-    padding: 12px;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-  ">Send Reply</button>
-</div>
-
-
-</div> <!-- ✅ closes the right panel wrapper -->
-
- 
-
-<script>
-
- let allHistoryItems = []; // stores full Firebase-loaded history
- 
-
-function showTab(id) {
-  document.querySelectorAll('.tab-section').forEach(tab => tab.style.display = 'none');
-  document.getElementById(id).style.display = 'block';
-}
-
-
-  function showTab(tabId) {
-    document.querySelectorAll('.tab-section').forEach(tab => tab.style.display = 'none');
-    document.getElementById(tabId).style.display = 'block';
-  }
-</script>
-
-
-
-<script>
-  function loadInbox() {
-    fetch('https://delivery-notification.onrender.com/inbox')
-      .then(res => res.json())
-      .then(data => {
-        const inboxDiv = document.getElementById('inbox');
-        inboxDiv.innerHTML = '';
-
-        if (data.length === 0) {
-          inboxDiv.innerHTML = '<div style="color: gray; font-style: italic;">No incoming messages yet.</div>';
-          return;
-        }
-
-        data.forEach(msg => {
-          const div = document.createElement('div');
-          div.className = 'inbox-item';
-          div.style.padding = '6px 0';
-          div.style.borderBottom = '1px solid #eee';
-          div.style.cursor = 'pointer';
-          div.innerHTML = `<strong>${msg.number}</strong> – ${msg.message}`;
-          div.onclick = () => openChat(msg.number, msg.message);
-          inboxDiv.appendChild(div);
-        });
-      })
-      .catch(err => console.error('❌ Failed to load inbox:', err));
-  }
-
-  function openChat(number, message) {
-    const chatThread = document.getElementById('chat-thread');
-    chatThread.innerHTML = ''; // Clear previous messages
-
-    const msg = document.createElement('div');
-    msg.innerHTML = `<strong style="color: #28a745;">📞 ${number}</strong><br>${message}`;
-    msg.style.marginBottom = '10px';
-    chatThread.appendChild(msg);
-  }
-
-  setInterval(loadInbox, 5000); // Refresh inbox every 5 seconds
-
-  window.onload = () => {
-  loadInbox();
-  document.getElementById('deliveryDate').value = getDefaultDeliveryDate();
-
-  // ✅ Attach formatter for phone field when it loses focus
-  document.getElementById('phone').addEventListener('blur', formatNameAndPhone);
-};
-
-
-
-</script>
-
-
-  <script>
-    function addReply() {
-      const msg = document.getElementById('replyMessage').value.trim();
-      if (!msg) return;
-  
-      const container = document.getElementById('chat-thread');
-      const replyBlock = document.createElement('div');
-      replyBlock.style.marginBottom = '10px';
-      replyBlock.innerHTML = `<strong style="color: #007bff;">👤 You</strong><br>${msg}`;
-      container.appendChild(replyBlock);
-  
-      document.getElementById('replyMessage').value = '';
-      container.scrollTop = container.scrollHeight;
-    }
-  
-    function openChat(number) {
-      const chatThread = document.getElementById('chat-thread');
-      chatThread.innerHTML = ''; // Clear previous messages
-  
-      // Simulate loaded messages
-      const msg = document.createElement('div');
-      msg.innerHTML = `<strong style="color: #28a745;">📞 ${number}</strong><br>Hello, can I get an update on delivery?`;
-      msg.style.marginBottom = '10px';
-      chatThread.appendChild(msg);
-    }
-
-
- // ✅ Poll for message status updates every 5 seconds
- setInterval(() => {
-  let somethingUpdated = false;
-
-  firebase.database().ref('messageHistory').once('value')
-    .then(snapshot => {
-      const history = snapshot.val() || {};
-
-      const fetches = Object.entries(history).map(([id, entry]) => {
-        if (!entry.messageSid || entry.status === 'read') return Promise.resolve();
-
-        return fetch(`/message-status/${entry.messageSid}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.status && data.status !== entry.status) {
-              console.log(`🔄 SID ${entry.messageSid} → ${data.status}`);
-              somethingUpdated = true;
-              return firebase.database().ref(`messageHistory/${id}/status`).set(data.status);
-            }
-          })
-          .catch(err => console.warn('❌ Error checking status:', err));
-      });
-
-      // Wait for all fetches and then refresh only if needed
-      return Promise.all(fetches).then(() => {
-        if (somethingUpdated) {
-          loadHistory();
-          displaySavedLater();
-        }
-      });
-    });
-}, 5000);
-
-
-
-  </script>
-  <!-- 🔐 PIN Overlay for Capacity Control -->
-<div id="pinOverlay" style="
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  font-family: Arial, sans-serif;
-">
-  <div style="
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    width: 300px;
-  ">
-    <h3>🔒 Enter PIN to change status</h3>
-
-<input id="pinInput"
-       type="text"
-       inputmode="numeric"
-       maxlength="6"
-       autocomplete="one-time-code"
-       name="otp_pin"
-       autocorrect="off"
-       autocapitalize="off"
-       spellcheck="false"
-       readonly
-       onfocus="this.removeAttribute('readonly');"
-       placeholder="Enter PIN..."
-       style="padding:8px;width:80%;font-size:16px;margin-bottom:10px;-webkit-text-security:disc;text-security:disc;">
-
-<br>
-
-<!-- ✅ Submit + Cancel buttons -->
-<div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
-  <button onclick="checkPin()" style="
-    background-color: #f5de20;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-  ">Submit</button>
-
-  <button onclick="cancelPinEntry()" style="
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-  ">Cancel</button>
-</div>
-
-<p id="pinError" style="color: red; display: none; margin-top: 8px;">❌ Incorrect PIN</p>
-
-  </div>
-</div>
-
-
-    <script>
-        let loadedFromSaved = false;
-
-
-        let selectedNumber = null;
-
-function cancelPinEntry() {
-  // Hide overlay and clear any entered text or errors
-  document.getElementById('pinOverlay').style.display = 'none';
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinError').style.display = 'none';
-  window.pendingColor = null; // clear any pending action
-}
-
-
-function selectMessage(el) {
-  // Deselect all
-  document.querySelectorAll('.incoming-message').forEach(msg => {
-    msg.style.backgroundColor = '';
-  });
-
-  // Highlight selected
-  el.style.backgroundColor = '#e0f0ff';
-
-  // Store number and update display
-  selectedNumber = el.dataset.number;
-  document.getElementById('replying-to').innerText = `Replying to: ${selectedNumber}`;
-}
-
 
 function formatUKDate(dateStr) {
   const date = new Date(dateStr);
   if (isNaN(date)) return dateStr;
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const dayName = date.toLocaleDateString('en', { weekday: 'long' });
+  const dayNum = date.getDate();
+  const monthName = date.toLocaleDateString('en', { month: 'long' });
   const year = date.getFullYear().toString().slice(-2);
-  return `${day}/${month}/${year}`;
+  const suffix = (dayNum === 1 || dayNum === 21 || dayNum === 31) ? 'st' :
+                 (dayNum === 2 || dayNum === 22) ? 'nd' :
+                 (dayNum === 3 || dayNum === 23) ? 'rd' : 'th';
+  return `${dayName} ${dayNum}${suffix} ${monthName} ${year}`;
 }
 
-function updateMessage() {
-  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-  const customerAddress = document.getElementById('customerAddress').value.trim();
-  const siteContact = document.getElementById('siteContact').value.trim();
-  const deliveryDateInput = document.getElementById('deliveryDate').value;
-  const selectedTemplate = document.getElementById('messageTemplate').value;
-
-  let fullMessage = "";
-
-  if (orderNumber) {
-    fullMessage += `PO: ${orderNumber}\n\n`;
-  }
-
-  switch (selectedTemplate) {
-    case "HXe409d244b93e3dd70144789d2e797664": // DELIVERY
-      fullMessage += `We are pleased to confirm that your order is now on its way.\n\n`;
-      break;
-    case "HXb930591ce15ddf1213379a48a92349e0": // CONFIRMATION
-      fullMessage += `Thank you for shopping with us.\n\nWe are pleased to confirm that your order is now booked in with our transport team, please see below for details. You will receive a delivery notification when your order is on its way.\n\n`;
-      break;
-    case "HXea334a5a136b808854eab2755556dd29": // COLLECTION
-      fullMessage += `Your order is now ready for collection at our yard:\n\n📍 397 Romford Rd, E7 8AB\n\nKind Regards,\nSales Team @ ChambersTimber.com`;
-      document.getElementById('message').value = fullMessage;
-      return;
-    default:
-      fullMessage += `[Select a message template]\n\n`;
-      break;
-  }
-
-  if (deliveryDateInput) {
-    const formattedDate = formatUKDate(deliveryDateInput);
-    fullMessage += `📅 Delivery Date: ${formattedDate}\n\n`;
-  }
-
-  if (customerAddress) {
-    fullMessage += `📍 ${customerAddress}\n`;
-  }
-
-  if (siteContact) {
-    fullMessage += `📞 ${siteContact}\n`;
-  }
-
-  fullMessage += `\nKind Regards\nSales Team @ ChambersTimber.com`;
-
-  document.getElementById('message').value = fullMessage;
-}
-
-
-function getDefaultDeliveryDate() {
-  const now = new Date();
-  if (now.getHours() >= 15) {
-    now.setDate(now.getDate() + 1);
-  }
-  return now.toISOString().split('T')[0];
-}
- 
-
-function clearForm() {
-  document.getElementById('phone').value = "";
-  document.getElementById('orderNumber').value = "";
-  document.getElementById('customerAddress').value = "";
-  document.getElementById('messageTemplate').selectedIndex = 0;
-  document.getElementById('message').value = "";
-  document.getElementById('siteContact').value = "";
-  document.getElementById('driver').selectedIndex = 0;
-  document.getElementById('vehicleReg').selectedIndex = 0;
-  document.getElementById('etaDropdown').selectedIndex = 0;
-
-  // ✅ Set delivery date to today or tomorrow depending on time
-  document.getElementById('deliveryDate').value = getDefaultDeliveryDate();
-
-  console.log("✅ All fields cleared and delivery date set correctly!");
-}
-
-
-
-
-// Function to load message history from localStorage 
-/*function displayHistory() {
-  const savedHistory = JSON.parse(localStorage.getItem('messageHistory')) || [];
-  const historyList = document.getElementById('history-list');
-  historyList.innerHTML = '';
-
-  savedHistory.forEach(item => {
-    const entryDiv = document.createElement('li');
-    entryDiv.style.display = 'flex';
-    entryDiv.style.alignItems = 'center';
-    entryDiv.style.justifyContent = 'space-between';
-    entryDiv.style.gap = '10px';
-    entryDiv.style.fontSize = '13px';
-
-    const status = item.status?.toLowerCase() || '';
-    const isDriver = item.orderNumber?.includes('(Driver)');
-    let icon = '⏳';
-    let color = 'gray';
-
-    if (status === 'sent') {
-      icon = '📨';
-      color = 'blue';
-    } else if (status === 'delivered') {
-      icon = '✅';
-      color = 'green';
-    } else if (status === 'read') {
-      icon = '✅✅';
-      color = isDriver ? 'blue' : 'green';
-    }
-
-    const info = document.createElement('div');
-    info.style.flex = '1';
-    info.style.overflow = 'hidden';
-    info.style.textOverflow = 'ellipsis';
-    info.style.whiteSpace = 'nowrap';
-    info.innerHTML = `
-      <span style="color: ${color}; margin-right: 5px;">${icon}</span>
-      <strong>${item.orderNumber}</strong> |
-      ETA: ${item.eta || 'TBC'} |
-      ${item.templateLabel || 'N/A'} |
-      ${item.customerAddress || 'N/A'} |
-      ${item.siteContact || 'N/A'} |
-      ${item.deliveryDate || 'TBC'} |
-      Driver: ${item.driverName || 'N/A'} |
-      Time: ${item.timeSent || 'N/A'}
-    `;
-
-    entryDiv.appendChild(info);
-    historyList.prepend(entryDiv);
-  });
-}*/
-
-
-function saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress = '', siteContact = '', deliveryDate = '', eta = '', status = 'Sent', messageSid = '') {
-
-  let formattedDeliveryDate = 'TBC';
-  if (deliveryDate) {
-    const dateObj = new Date(deliveryDate);
-    if (!isNaN(dateObj)) {
-      const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-      const dayNum = dateObj.getDate();
-      const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-      formattedDeliveryDate = `${day} ${dayNum} ${month}`;
-    }
-  }
-
-  const now = new Date();
-  const timeSent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-  const historyItem = {
-  orderNumber: orderNumber.trim().toUpperCase(),
-  templateLabel: templateLabel || '',
-  driverName: driverName || '',
-  customerAddress: customerAddress || '',
-  siteContact: siteContact || '',
-  deliveryDate: formattedDeliveryDate || '',
-  eta: eta || '',
-  status: status || '',
-  messageSid: messageSid || '',
-  timeSent,
-  timestamp: Date.now()
-};
-
-// ✅ Only include driverPhone if it exists
-if (driverPhone) {
-  historyItem.driverPhone = driverPhone;
-}
-
-
-
-  // ✅ Ensure it's saving to the correct path
-  firebase.database().ref('messageHistory').push(historyItem)
-    .then(() => console.log("✅ messageHistory entry saved:", messageSid))
-    .catch(err => console.error("❌ Failed to save messageHistory:", err));
-}
-
-
-
-let historyLimit = 50; // Start by showing only 50
-
-
-
-function loadHistory() {
-  const historyList = document.getElementById('history-list');
-  historyList.innerHTML = 'Loading...';
-
-  firebase.database().ref('messageHistory').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        historyList.innerHTML = '<li style="color: gray;">No history yet.</li>';
-        return;
-      }
-
-      historyList.innerHTML = '';
-
-     allHistoryItems = Object.entries(data)
-  .map(([firebaseId, entry]) => ({ ...entry, firebaseId }))
-  .sort((b, a) => (b.timestamp || 0) - (a.timestamp || 0))
-  .reverse();
- // newest first
-
-      const visibleItems = allHistoryItems.slice(0, historyLimit);
-
-      visibleItems.forEach(item => {
-        const entry = document.createElement('li');
-        entry.style.display = 'flex';
-        entry.style.alignItems = 'center';
-        entry.style.justifyContent = 'space-between';
-        entry.style.gap = '10px';
-        entry.style.fontSize = '13px';
-
-        const iconsDiv = document.createElement('div');
-        iconsDiv.style.minWidth = '60px';
-        iconsDiv.style.display = 'flex';
-        iconsDiv.style.gap = '3px';
-
-        const status = item.status?.toLowerCase() || '';
-        let icon = '⏳', color = 'gray';
-        if (status === 'sent') { icon = '📨'; color = 'blue'; }
-        if (status === 'delivered') { icon = '✅'; color = 'green'; }
-        if (status === 'read') { icon = '✅✅'; color = 'black'; }
-
-        const statusSpan = document.createElement('span');
-        statusSpan.textContent = icon;
-        statusSpan.style.color = color;
-        iconsDiv.appendChild(statusSpan);
-
-        let orderDisplay = item.orderNumber || 'N/A';
-        if (orderDisplay.toLowerCase().includes('(driver)')) {
-          orderDisplay = `<span style="color:red; font-weight:bold;">${orderDisplay}</span>`;
-        } else {
-          orderDisplay = `<strong>${orderDisplay}</strong>`;
-        }
-
-        const info = document.createElement('div');
-        info.style.flex = '1';
-        info.style.overflow = 'hidden';
-        info.style.textOverflow = 'ellipsis';
-        info.style.whiteSpace = 'nowrap';
-        info.innerHTML = `
-          ${orderDisplay} |
-          ETA: ${item.eta || 'TBC'} |
-          ${item.templateLabel?.replace(' (Driver)', '') || 'N/A'} |
-          ${item.customerAddress || 'N/A'} |
-          ${item.siteContact || 'N/A'} |
-          ${item.deliveryDate || ''} |
-          Driver: ${item.driverName || 'N/A'} |
-          Time: ${item.timeSent || ''}
-        `;
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '🗑️';
-        deleteBtn.style.background = 'transparent';
-        deleteBtn.style.border = 'none';
-        deleteBtn.style.cursor = 'pointer';
-        deleteBtn.style.fontSize = '12px';
-        deleteBtn.style.flex = '0';
-        deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
-
-        entry.appendChild(iconsDiv);
-        entry.appendChild(info);
-        entry.appendChild(deleteBtn);
-        historyList.appendChild(entry);
-      });
-
-      const loadMoreBtn = document.getElementById('load-more-btn');
-      if (allHistoryItems.length > historyLimit) {
-        loadMoreBtn.style.display = 'block';
-      } else {
-        loadMoreBtn.style.display = 'none';
-      }
-    })
-    .catch(err => {
-      console.error("❌ Failed to load history:", err);
-      historyList.innerHTML = '<li style="color: red;">Failed to load history.</li>';
-    });
-}
-
-
-function loadMoreHistory() {
-  historyLimit += 10;
-  loadHistory();
-}
-
-function filterHistoryByOrder() {
-  const query = document.getElementById('historySearchInput').value.trim().toLowerCase();
-  const historyList = document.getElementById('history-list');
-  historyList.innerHTML = '';
-
-  const filtered = allHistoryItems
-    .filter(item => item.orderNumber?.toLowerCase().includes(query))
-    .slice(0, historyLimit);
-
-  if (filtered.length === 0) {
-    historyList.innerHTML = '<li style="color: gray;">No matching results.</li>';
-    document.getElementById('load-more-btn').style.display = 'none';
-    return;
-  }
-
-  filtered.forEach(item => {
-    const entry = document.createElement('li');
-    entry.style.display = 'flex';
-    entry.style.alignItems = 'center';
-    entry.style.justifyContent = 'space-between';
-    entry.style.gap = '10px';
-    entry.style.fontSize = '13px';
-
-    const iconsDiv = document.createElement('div');
-    iconsDiv.style.minWidth = '60px';
-    iconsDiv.style.display = 'flex';
-    iconsDiv.style.gap = '3px';
-
-    const status = item.status?.toLowerCase() || '';
-    let icon = '⏳', color = 'gray';
-    if (status === 'sent') { icon = '📨'; color = 'blue'; }
-    if (status === 'delivered') { icon = '✅'; color = 'green'; }
-    if (status === 'read') { icon = '✅✅'; color = 'black'; }
-
-    const statusSpan = document.createElement('span');
-    statusSpan.textContent = icon;
-    statusSpan.style.color = color;
-    iconsDiv.appendChild(statusSpan);
-
-    let orderDisplay = item.orderNumber || 'N/A';
-    if (orderDisplay.toLowerCase().includes('(driver)')) {
-      orderDisplay = `<span style="color:red; font-weight:bold;">${orderDisplay}</span>`;
-    } else {
-      orderDisplay = `<strong>${orderDisplay}</strong>`;
-    }
-
-    const info = document.createElement('div');
-    info.style.flex = '1';
-    info.style.overflow = 'hidden';
-    info.style.textOverflow = 'ellipsis';
-    info.style.whiteSpace = 'nowrap';
-    info.innerHTML = `
-      ${orderDisplay} |
-      ETA: ${item.eta || 'TBC'} |
-      ${item.templateLabel?.replace(' (Driver)', '') || 'N/A'} |
-      ${item.customerAddress || 'N/A'} |
-      ${item.siteContact || 'N/A'} |
-      ${item.deliveryDate || ''} |
-      Driver: ${item.driverName || 'N/A'} |
-      Time: ${item.timeSent || ''}
-    `;
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = '🗑️';
-    deleteBtn.style.background = 'transparent';
-    deleteBtn.style.border = 'none';
-    deleteBtn.style.cursor = 'pointer';
-    deleteBtn.style.fontSize = '12px';
-    deleteBtn.style.flex = '0';
-    deleteBtn.onclick = () => deleteHistoryEntry(item.firebaseId);
-
-    entry.appendChild(iconsDiv);
-    entry.appendChild(info);
-    entry.appendChild(deleteBtn);
-    historyList.appendChild(entry);
-  });
-
-  // Show/hide Load More based on whether more match the search
-  const loadMoreBtn = document.getElementById('load-more-btn');
-  if (filtered.length >= historyLimit) {
-    loadMoreBtn.style.display = 'block';
-  } else {
-    loadMoreBtn.style.display = 'none';
-  }
-}
-
-
-function deleteHistoryEntry(firebaseId) {
-  if (!firebaseId) {
-    console.warn("❌ No Firebase ID provided for deletion.");
-    return;
-  }
-
-  if (!confirm("Are you sure you want to delete this history entry?")) return;
-
-  firebase.database().ref(`messageHistory/${firebaseId}`).remove()
-    .then(() => {
-      console.log(`🗑️ Deleted history entry: ${firebaseId}`);
-      loadHistory(); // Refresh list
-    })
-    .catch(err => {
-      console.error("❌ Failed to delete entry:", err);
-      alert("Failed to delete this entry. Check internet or Firebase permissions.");
-    });
-}
-function sendCustomerMessage(payload) {
-  return fetch('https://delivery-notification.onrender.com/send-message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-}
-
-function sendDriverMessage(payload) {
-  return fetch('https://delivery-notification.onrender.com/send-message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-}
-
-
-let driverMessageSent = false; // ✅ Declare globally
-
-function sendMessage() {
-  const phone = document.getElementById('phone').value.trim();
-  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-  const customerAddress = document.getElementById('customerAddress').value.trim();
-  const driverValue = document.getElementById('driver').value;
-  const driverLabel = driverValue || 'No driver selected';
-
-  const templateDropdown = document.getElementById('messageTemplate');
-  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
-
-  // ✅ Fill modal content
-  document.getElementById('confirmOrder').innerText = orderNumber || 'N/A';
-  document.getElementById('confirmPhone').innerText = phone || 'N/A';
-  document.getElementById('confirmAddress').innerText = customerAddress || 'N/A';
-  document.getElementById('confirmDriver').innerText = driverLabel;
-  document.getElementById('confirmTemplate').innerText = templateLabel; // ✅ Add this here
-
-  // ✅ Show modal
-  document.getElementById('confirmationModal').style.display = 'flex';
-}
-
-
-function closeConfirmModal() {
-  document.getElementById('confirmationModal').style.display = 'none';
-}
-
-function confirmSend() {
-  closeConfirmModal();
-  proceedWithSend();
-}
-
-function proceedWithSend() {
-  const phone = document.getElementById('phone').value.trim();
-  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-  const customerAddress = document.getElementById('customerAddress').value.trim();
-  const etaValue = document.getElementById("etaDropdown").value;
-  const siteContactInput = document.getElementById('siteContact').value.trim();
-  const siteContact = siteContactInput || phone;
-  const templateDropdown = document.getElementById('messageTemplate');
-  const templateSid = templateDropdown.value;
-  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
-  const deliveryDate = document.getElementById('deliveryDate').value;
-  const vehicleReg = document.getElementById('vehicleReg').value;
-  const lastLoadedSavedId = document.getElementById('lastLoadedSavedId').value;
-
-  const responseText = document.getElementById('response');
-  const loading = document.getElementById('loading');
-  loading.style.display = "block";
-  responseText.style.color = "black";
-  responseText.innerHTML = "Sending... ⏳";
-
-  let driverName = '';
-  let driverPhone = '';
-  const driverValue = document.getElementById('driver').value;
-  if (driverValue && driverValue.includes(' - ')) {
-    [driverName, driverPhone] = driverValue.split(' - ');
-  }
-
-  const payload = {
-    phone,
-    orderNumber,
-    eta: etaValue,
-    deliveryDate,
-    customerAddress,
-    siteContact,
-    vehicleReg,
-    templateSid,
-    driver: driverValue
-  };
-
-  if (!lastLoadedSavedId) {
-    const entry = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
+app.post('/send-message', async (req, res) => {
+  try {
+    console.log('📩 Incoming send-message POST body:', req.body);
+
+    const {
       phone,
       orderNumber,
-      customerAddress,
-      etaValue,
-      siteContact,
-      templateLabel,
-      templateSid,
-      driverName,
-      driverPhone,
-      vehicleReg,
+      eta,
       deliveryDate,
-      used: false
+      customerAddress,
+      siteContact,
+      vehicleReg,
+      templateSid,
+      driver
+    } = req.body;
+
+    const customerPhone = formatPhoneNumber(phone);
+    const vehicleType = vehicleReg || '';
+    const mapImageUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customerAddress || '')}`;
+    const etaValue = typeof eta === 'string' ? eta : '';
+    const deliveryDateValue = typeof deliveryDate === 'string' ? deliveryDate : '';
+
+    let driverPhone = '';
+    if (driver && typeof driver === 'string') {
+      if (driver.includes(' - ')) {
+        driverPhone = formatPhoneNumber(driver.split(' - ')[1].trim());
+      } else {
+        driverPhone = formatPhoneNumber(driver.trim());
+      }
+    }
+
+    if (!customerPhone.startsWith('+44') || customerPhone.length < 10) {
+      return res.status(400).json({ success: false, error: 'Invalid customer UK phone number' });
+    }
+
+    let contentVariables;
+    if (templateSid === orderConfirmationTemplateSid) {
+      if (!deliveryDateValue.trim()) {
+        return res.status(400).json({ success: false, error: 'Delivery Date is required for Order Confirmations.' });
+      }
+      contentVariables = JSON.stringify({
+        '1': orderNumber || 'N/A',
+        '2': formatUKDate(deliveryDateValue.trim()),
+        '3': customerAddress || 'N/A',
+        '4': siteContact || 'N/A',
+        '5': mapImageUrl
+      });
+    } else {
+      contentVariables = JSON.stringify({
+        '1': orderNumber || 'N/A',
+        '2': etaValue || 'N/A',
+        '3': customerAddress || 'N/A',
+        '4': siteContact || 'N/A',
+        '5': mapImageUrl,
+        '6': vehicleType || 'N/A'
+      });
+    }
+
+    const messagePayload = {
+      from: whatsappNumber,
+      contentSid: templateSid,
+      contentVariables,
+      contentLanguage: 'en',
+      statusCallback: 'https://delivery-notification.onrender.com/status-callback'
     };
 
-    firebase.database().ref('savedLater').push(entry)
-      .then(() => console.log("✅ Saved to 'savedLater' before sending:", orderNumber))
-      .catch(err => console.error("❌ Failed to save to 'savedLater':", err));
-  }
-
-  fetch('https://delivery-notification.onrender.com/send-message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (!data.success) throw new Error(data.error || "Failed to send message.");
-
-      console.log("✅ Sent to customer:", data.sid);
-      saveHistory(orderNumber, templateLabel, driverName, driverPhone, customerAddress, siteContact, deliveryDate, etaValue, 'Sent', data.sid);
-
-      if (data.driverSid) {
-        console.log("✅ Sent to driver:", data.driverSid);
-        saveHistory(
-          orderNumber + ' (Driver)',
-          templateLabel + ' (Driver)',
-          driverName,
-          driverPhone,
-          customerAddress,
-          siteContact,
-          deliveryDate,
-          etaValue,
-          'Sent',
-          data.driverSid
-        );
-      }
-
-      responseText.style.color = "green";
-      responseText.innerHTML = "Messages sent ✅";
-      setTimeout(() => responseText.innerHTML = "", 3000);
-    })
-    .catch(err => {
-      console.error("❌ Error:", err.message);
-      responseText.style.color = "red";
-      responseText.innerHTML = `❌ ${err.message}`;
-    })
-    .finally(() => {
-      loading.style.display = "none";
-      loadHistory();
-      displaySavedLater();
-      clearForm();
-      loadedFromSaved = false;
-      document.getElementById('lastLoadedSavedId').value = '';
+    const customerMessage = await client.messages.create({
+      ...messagePayload,
+      to: `whatsapp:${customerPhone}`
     });
-}
+    console.log('✅ Customer message SID:', customerMessage.sid);
 
-
-
-function pollStatusUpdates() {
-  console.log("⏳ Polling message statuses...");
-
-  firebase.database().ref('messageHistory').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        console.warn("⚠️ No message history found.");
-        return;
+    let driverSid = '';
+    if (driverPhone && /^\+44\d{9,10}$/.test(driverPhone)) {
+      try {
+        const driverMessage = await client.messages.create({
+          ...messagePayload,
+          to: `whatsapp:${driverPhone}`
+        });
+        driverSid = driverMessage.sid;
+        console.log('✅ Driver message SID:', driverSid);
+      } catch (err) {
+        console.error(`❌ Failed to send to driver ${driverPhone}:`, err.message);
       }
+    } else {
+      console.warn(`⚠️ Skipping driver send — invalid or missing number: ${driverPhone}`);
+    }
 
-      Object.entries(data).forEach(([id, entry]) => {
-        if (!entry.messageSid) {
-          console.warn(`❌ No SID for entry ${id}`);
-          return;
-        }
-
-        if (entry.status === 'read') {
-          console.log(`✅ Skipping read message: ${entry.messageSid}`);
-          return;
-        }
-
-        console.log(`📤 Checking status for SID: ${entry.messageSid}`);
-
-        fetch(`/message-status/${entry.messageSid}`)
-          .then(res => res.json())
-          .then(statusData => {
-            console.log(`📩 Response for ${entry.messageSid}:`, statusData);
-
-            const newStatus = statusData.status;
-
-            if (
-              newStatus &&
-              typeof newStatus === 'string' &&
-              newStatus.trim() !== '' &&
-              newStatus !== entry.status
-            ) {
-              console.log(`🔄 Updating ${entry.messageSid}: ${entry.status} → ${newStatus}`);
-              firebase.database().ref(`messageHistory/${id}/status`).set(newStatus);
-            } else {
-              console.log(`ℹ️ No update needed for ${entry.messageSid}: current=${entry.status}, new=${newStatus}`);
-            }
-          })
-          .catch(err => console.warn(`❌ Failed to fetch status for SID ${entry.messageSid}:`, err));
-      });
-    })
-    .catch(err => console.error("❌ Failed to poll message history:", err));
-}
-
-
-
-function setupLiveStatusUpdates() {
-  firebase.database().ref('messageHistory').on('child_changed', snapshot => {
-    const updatedEntry = snapshot.val();
-    console.log(`🔁 Live update: ${updatedEntry.orderNumber} status changed to ${updatedEntry.status}`);
-
-    // Refresh UI to reflect the change
-    loadHistory();
-    displaySavedLater();
-  });
-}
-firebase.database().ref('messageHistory').on('child_added', snapshot => {
-  const newEntry = snapshot.val();
-  console.log(`📥 New message added: ${newEntry.orderNumber}`);
-  loadHistory();
-  displaySavedLater();
+    res.json({ success: true, sid: customerMessage.sid, driverSid });
+  } catch (error) {
+    console.error('❌ Failed to send message:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-function cleanAddressInput() {
-  const addressInput = document.getElementById('customerAddress');
-  let value = addressInput.value;
+// ✅ Receive incoming WhatsApp messages + send auto-reply
+app.post('/incoming-whatsapp', async (req, res) => {
+  const from = req.body.From || '';
+  const body = req.body.Body || '';
+  console.log('📩 Incoming message received:', { from, body });
 
-  // 🔴 Remove unwanted words
-  value = value.replace(/\b(london|postcode)\b/gi, '');
-
-  // 🧼 Trim and normalize spacing
-  value = value.replace(/\s{2,}/g, ' ').trim();
-
-  // ✨ Attempt to extract postcode
-  const postcodeMatch = value.match(/([A-Z]{1,2}\d{1,2}[A-Z]?)\s?(\d[A-Z]{2})/i);
-  let postcode = '';
-  if (postcodeMatch) {
-    postcode = `${postcodeMatch[1].toUpperCase()} ${postcodeMatch[2].toUpperCase()}`;
-    value = value.replace(postcodeMatch[0], '').trim(); // remove postcode temporarily
-  }
-
-  // 🔠 Capitalize each word
-  value = value.split(' ').map(word => {
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  }).join(' ');
-
-  // 🔁 Append postcode at end
-  if (postcode) {
-    value = `${value} ${postcode}`;
-  }
-
-  addressInput.value = value;
-}
-
-function formatNameAndPhone() {
-  const phoneInput = document.getElementById('phone');
-  let raw = phoneInput.value.trim();
-
-  // Match strictly: Name followed by 11 digits, with optional space and hyphen
-  const match = raw.match(/^([\w\s.'-]+?)\s*-\s*(0\d{10})$/);
-
-  if (match) {
-    const name = match[1].trim();
-    const number = match[2];
-
-    const formatted = `${number.slice(0, 5)} ${number.slice(5, 8)} ${number.slice(8)}`;
-    phoneInput.value = `${name} - ${formatted}`;
-  }
-}
-
-
-
-function saveForLater() {
-  const phone = document.getElementById('phone').value.trim();
-  const orderNumber = document.getElementById('orderNumber').value.trim().toUpperCase();
-  const customerAddress = document.getElementById('customerAddress').value.trim();
-  const etaValue = document.getElementById("etaDropdown").value;
-  
-  // ✅ If site contact is empty, fallback to customer's number
-  let siteContact = document.getElementById('siteContact').value.trim();
-  if (!siteContact) {
-    siteContact = phone;
-  }
-
-  const templateDropdown = document.getElementById('messageTemplate');
-  const templateLabel = templateDropdown.options[templateDropdown.selectedIndex].text;
-  const templateSid = templateDropdown.value;
-
-  const driverValue = document.getElementById('driver').value || '';
-  const [driverName = '', driverPhone = ''] = driverValue.split(' - ');
-  
-  const vehicleReg = document.getElementById('vehicleReg').value;
-  const deliveryDate = document.getElementById('deliveryDate').value;
-
-  if (!orderNumber || !templateSid) {
-    alert("⚠️ Please enter an order number and select a message template before saving.");
-    return;
-  }
-
-  const entry = {
-    id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
-    phone,
-    orderNumber,
-    customerAddress,
-    etaValue,
-    siteContact, // ✅ uses fallback
-    templateLabel,
-    templateSid,
-    driverName,
-    driverPhone,
-    vehicleReg,
-    deliveryDate,
-    used: false
-  };
-
-  firebase.database().ref('savedLater').push(entry)
-    .then(() => {
-      console.log("✅ Saved to Firebase:", entry.orderNumber);
-      displaySavedLater(); 
-      clearForm();
-    })
-    .catch(error => {
-      console.error("❌ Firebase save failed:", error);
-      alert("Failed to save. Please check your connection or Firebase rules.");
+  if (from.startsWith('whatsapp:') && body) {
+    const number = from.replace('whatsapp:', '');
+    inboxMessages.push({
+      number,
+      message: body,
+      time: new Date().toLocaleTimeString()
     });
-}
 
-let lastDeletedHistory = null; // Global backup
+    // ✅ AUTO-RESPONSE MESSAGE
+    const autoReply =
+      "This inbox is not monitored.\n\n" +
+      "For any assistance with your order please call our Customer Support Team on 0208 534 6318.\n\n" +
+      "Kind Regards,\nSales Team @ ChambersTimber.com";
 
-function clearOrderHistory() {
-  if (!confirm("Are you sure you want to delete all order history?")) return;
-
-  // Step 1: Backup existing history before clearing
-  firebase.database().ref('messageHistory').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        alert("Order history is already empty.");
-        return;
-      }
-
-      lastDeletedHistory = data; // Backup in memory
-
-      // Step 2: Clear from Firebase
-      return firebase.database().ref('messageHistory').remove();
-    })
-    .then(() => {
-      console.log("✅ Order history cleared from Firebase");
-      loadHistory(); // Refresh UI
-      showUndoButton(); // Show undo button
-    })
-    .catch(error => {
-      console.error("❌ Failed to clear order history:", error);
-      alert("Failed to clear order history. Please check your connection or Firebase rules.");
-    });
-}
-
-
-function showUndoButton() {
-  const historyTab = document.getElementById('historyTab');
-  const existingUndo = document.getElementById('undo-button');
-  if (existingUndo) return; // Avoid duplicates
-
-  const undoDiv = document.createElement('div');
-  undoDiv.id = 'undo-button';
-  undoDiv.style.marginTop = '10px';
-  undoDiv.innerHTML = `
-    <button onclick="undoClearHistory()" style="
-      background-color: #007bff;
-      color: white;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 5px;
-      font-size: 13px;
-      cursor: pointer;
-    ">
-      🔄 Undo Clear
-    </button>
-  `;
-  historyTab.appendChild(undoDiv);
-
-  // Auto-remove after 60 seconds
-  setTimeout(() => {
-    if (undoDiv && undoDiv.parentNode) {
-      undoDiv.remove();
-    }
-  }, 60000);
-}
-
-function undoClearHistory() {
-  if (!lastDeletedHistory) {
-    alert("Nothing to undo.");
-    return;
-  }
-
-  // Restore each deleted entry
-  const updates = Object.entries(lastDeletedHistory).map(([key, value]) => {
-    return firebase.database().ref(`messageHistory/${key}`).set(value);
-  });
-
-  Promise.all(updates)
-    .then(() => {
-      console.log("✅ Order history restored");
-      loadHistory();
-      document.getElementById('undo-button')?.remove();
-    })
-    .catch(err => {
-      console.error("❌ Failed to restore history:", err);
-      alert("Could not undo the deletion.");
-    });
-}
-
-function displaySavedLater() {
-  const container = document.getElementById('saved-for-later');
-  const scrollPos = container.scrollTop; // ✅ Save scroll position
-  container.innerHTML = '<div style="color: gray; font-style: italic;">Loading...</div>';
-
-  firebase.database().ref('savedLater').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        container.innerHTML = '<div style="color: gray; font-style: italic;">No saved entries yet.</div>';
-        return;
-      }
-
-      const saved = Object.entries(data).map(([firebaseId, item]) => ({
-        ...item,
-        firebaseId
-      }));
-
-      // Sort by delivery date
-      saved.sort((a, b) => new Date(a.deliveryDate || 0) - new Date(b.deliveryDate || 0));
-
-      // Load message history from Firebase
-      firebase.database().ref('messageHistory').once('value')
-        .then(historySnap => {
-          const messageHistory = historySnap.val() ? Object.values(historySnap.val()) : [];
-
-          container.innerHTML = ''; // Clear loading
-
-          saved.forEach(item => {
-            const row = document.createElement('div');
-            row.style.display = 'flex';
-            row.style.alignItems = 'center';
-            row.style.justifyContent = 'space-between';
-            row.style.gap = '10px';
-            row.style.padding = '6px 10px';
-            row.style.margin = '0';
-            row.style.lineHeight = '1.2';
-            row.style.fontSize = '13px';
-            row.style.borderBottom = '1px solid #eee';
-
-            const order = item.orderNumber || 'N/A';
-            const address = item.customerAddress || 'No Address';
-            const contact = item.siteContact || 'No Contact';
-
-            let formattedDate = 'TBC';
-            if (item.deliveryDate) {
-              const dateObj = new Date(item.deliveryDate);
-              if (!isNaN(dateObj)) {
-                const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-                const dayNum = dateObj.getDate();
-                const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-                formattedDate = `${day} ${dayNum} ${month}`;
-              }
-            }
-
-            let status = '';
-            const match = messageHistory.find(h =>
-              h.messageSid &&
-              h.orderNumber?.trim().toUpperCase() === item.orderNumber?.trim().toUpperCase()
-            );
-            if (match && match.status && !['pending', 'queued'].includes(match.status.toLowerCase())) {
-              status = match.status;
-            }
-
-            const info = document.createElement('div');
-            info.innerHTML = `<strong>Order: ${order}</strong> | ${address} | ${contact} | ${formattedDate}`;
-            info.style.flex = '1';
-            info.style.overflow = 'hidden';
-            info.style.textOverflow = 'ellipsis';
-            info.style.whiteSpace = 'nowrap';
-            info.style.cursor = 'pointer';
-            info.onclick = () => loadSavedEntry(item.orderNumber, item.phone);
-
-            const statusLabel = document.createElement('div');
-            statusLabel.style.display = 'flex';
-            statusLabel.style.alignItems = 'center';
-            statusLabel.style.justifyContent = 'center';
-            statusLabel.style.gap = '5px';
-            statusLabel.style.fontSize = '12px';
-            statusLabel.style.flex = '0';
-            statusLabel.style.minWidth = '60px';
-
-            if (status) {
-              let statusColor = 'gray';
-              let icon = '⏳';
-
-              if (status.toLowerCase() === 'sent') {
-                statusColor = 'blue';
-                icon = '📨';
-              } else if (status.toLowerCase() === 'delivered') {
-                statusColor = 'green';
-                icon = '✅';
-              } else if (status.toLowerCase() === 'read') {
-                statusColor = 'black';
-                icon = '✅✅';
-              }
-
-              statusLabel.style.color = statusColor;
-              statusLabel.innerHTML = `
-                <span style="font-size: 14px;">${icon}</span>
-                <span style="text-transform: lowercase;">${status}</span>
-              `;
-            }
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = '🗑️';
-            deleteBtn.style.background = 'transparent';
-            deleteBtn.style.border = 'none';
-            deleteBtn.style.cursor = 'pointer';
-            deleteBtn.style.fontSize = '12px';
-            deleteBtn.style.flex = '0';
-            deleteBtn.onclick = (e) => {
-              e.stopPropagation();
-              firebase.database().ref(`savedLater/${item.firebaseId}`).remove()
-                .then(() => displaySavedLater());
-            };
-
-            row.appendChild(info);
-            row.appendChild(statusLabel);
-            row.appendChild(deleteBtn);
-            container.appendChild(row);
-          });
-
-          container.scrollTop = scrollPos; // ✅ Restore scroll position
-        })
-        .catch(err => {
-          console.error("❌ Error loading messageHistory from Firebase:", err);
-          container.innerHTML = `<div style="color: red;">Error loading message status: ${err.message}</div>`;
-        });
-    })
-    .catch(error => {
-      console.error('❌ Error loading savedLater from Firebase:', error);
-      container.innerHTML = `<div style="color: red;">Error loading saved entries: ${error.message}</div>`;
-    });
-}
-
-
-
-function printSavedLater() {
-  firebase.database().ref('savedLater').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        alert("No saved items to print.");
-        return;
-      }
-
-      const saved = Object.values(data);
-      if (saved.length === 0) {
-        alert("No saved items to print.");
-        return;
-      }
-
-      saved.sort((a, b) => new Date(a.deliveryDate || 0) - new Date(b.deliveryDate || 0));
-
-      let html = `
-        <div id="print-area">
-          <h2>Deliveries booked in with transport</h2>
-          <ul style="font-family: Arial; font-size: 12px;">
-      `;
-
-      saved.forEach((item, index) => {
-        const order = item.orderNumber || 'N/A';
-        const address = item.customerAddress || 'N/A';
-        const contact = item.siteContact || 'N/A';
-
-        let date = 'N/A';
-        if (item.deliveryDate) {
-          const dateObj = new Date(item.deliveryDate);
-          if (!isNaN(dateObj)) {
-            const day = dateObj.toLocaleDateString('en-GB', { weekday: 'long' });
-            const dayNum = dateObj.getDate();
-            const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-            const year = dateObj.getFullYear();
-            date = `${day} ${dayNum} ${month} ${year}`;
-          }
-        }
-
-        html += `
-          <li style="margin-bottom: 4px; line-height: 1.6;">
-            ${index + 1}. Order: ${order} | ${address} | ${contact} | ${date}
-          </li>
-          <hr style="border: 1px solid black; margin: 10px 0;">
-        `;
+    try {
+      // Send the automatic reply back to sender
+      const reply = await client.messages.create({
+        from: whatsappNumber,
+        to: from, // reply directly to the sender
+        body: autoReply
       });
 
-      html += `</ul></div>`;
-
-      const originalBody = document.body.innerHTML;
-      document.body.innerHTML = html;
-
-      window.print();
-
-      setTimeout(() => {
-        document.body.innerHTML = originalBody;
-        location.reload(); // Restore UI and reset scripts
-      }, 500);
-    })
-    .catch(error => {
-      console.error("❌ Firebase print error:", error);
-      alert("Failed to print saved entries.");
-    });
-}
-
-
-
-function loadSavedEntry(orderNumber, phone) {
-  const clean = str => str?.replace(/\s+/g, '').replace(/^0/, '+44') || '';
-  const cleanedPhone = clean(phone);
-  const cleanedOrder = orderNumber?.trim().toUpperCase();
-
-  firebase.database().ref('savedLater').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        alert("Could not find matching saved entry.");
-        return;
-      }
-
-      const match = Object.entries(data).find(([key, entry]) =>
-        entry.orderNumber?.trim().toUpperCase() === cleanedOrder &&
-        clean(entry.phone) === cleanedPhone
-      );
-
-      if (!match) {
-        alert("Could not find matching saved entry.");
-        return;
-      }
-
-      const [firebaseId, item] = match;
-
-      // ✅ Load values into form
-      document.getElementById('phone').value = item.phone || '';
-      document.getElementById('orderNumber').value = item.orderNumber || '';
-      document.getElementById('customerAddress').value = item.customerAddress || '';
-      document.getElementById('etaDropdown').value = item.etaValue || '';
-      document.getElementById('siteContact').value = item.siteContact || '';
-      document.getElementById('messageTemplate').value = item.templateSid || '';
-      document.getElementById('driver').value = item.driverName && item.driverPhone ? `${item.driverName} - ${item.driverPhone}` : '';
-      document.getElementById('vehicleReg').value = item.vehicleReg || '';
-      document.getElementById('deliveryDate').value = item.deliveryDate || '';
-      document.getElementById('lastLoadedSavedId').value = firebaseId;
-
-      updateMessage();
-
-      loadedFromSaved = true;
-    })
-    .catch(err => {
-      console.error("❌ Error loading saved entry from Firebase:", err);
-      alert("Could not find matching saved entry.");
-    });
-}
-
-
-
-function deleteSavedEntry(entryToDelete) {
-  firebase.database().ref('savedLater').once('value')
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) return;
-
-      // Find the Firebase key by matching order + phone
-      const clean = str => str?.replace(/\s+/g, '').replace(/^0/, '+44') || '';
-      const cleanedPhone = clean(entryToDelete.phone);
-      const cleanedOrder = entryToDelete.orderNumber?.trim().toUpperCase();
-
-      const matchKey = Object.entries(data).find(([key, item]) =>
-        item.orderNumber?.trim().toUpperCase() === cleanedOrder &&
-        clean(item.phone) === cleanedPhone
-      )?.[0];
-
-      if (!matchKey) return;
-
-      return firebase.database().ref(`savedLater/${matchKey}`).remove();
-    })
-    .then(() => {
-      console.log("🗑️ Entry deleted");
-      displaySavedLater();
-    })
-    .catch(err => {
-      console.error("❌ Failed to delete entry:", err);
-      alert("Could not delete saved entry.");
-    });
-}
-
-
-function clearSavedLater() {
-  if (confirm("Are you sure you want to clear all saved entries?")) {
-    firebase.database().ref('savedLater').remove()
-      .then(() => {
-        console.log("✅ All saved orders cleared from Firebase");
-        displaySavedLater(); // refresh UI
-      })
-      .catch(error => {
-        console.error("❌ Error clearing saved orders from Firebase:", error);
-        alert("Failed to clear saved entries. Please check your internet or Firebase rules.");
-      });
-  }
-} 
-
-
-/*function checkPassword() {
-  const correctPassword = "timber123"; // 🔑 Change to your real password
-  const entered = document.getElementById('login-password').value;
-
-  if (entered === correctPassword) {
-    document.getElementById('login-overlay').style.display = 'none';
-  } else {
-    document.getElementById('login-error').style.display = 'block';
-  }
-}*/
-// --- DELIVERY CAPACITY BAR ---
-// --- DELIVERY CAPACITY BAR ---
-// UI-only updater (does NOT write to Firebase)
-function applyCapacityUI(color) {
-  const dot = document.getElementById('capDot');
-  const text = document.getElementById('capText');
-  const btns = document.querySelectorAll('.cap-btn');
-
-  // reset button opacity
-  btns.forEach(b => b.style.opacity = '0.5');
-  const active = document.querySelector(`.cap-btn[data-color="${color}"]`);
-  if (active) active.style.opacity = '1';
-
-  let message = '';
-  let dotColor = '';
-
-  if (color === 'green') {
-    dotColor = '#11a552';
-    message = '[ Green ] Plenty of slots remaining';
-  } else if (color === 'orange') {
-    dotColor = '#ff9900';
-    message = '[ Orange ] Slots available but confirm with transport';
-  } else if (color === 'yellow') {
-    dotColor = '#f5de20';
-    message = '[ Yellow ] E7 Local Deliveries only';
-  } else if (color === 'red') {
-    dotColor = '#d9362b';
-    message = '[ Red ] We are full!!! No more for today!';
-  } else {
-    dotColor = '#11a552';
-    message = 'Green = Plenty of slots remaining';
-  }
-
-  dot.style.backgroundColor = dotColor; // solid fill
-  text.textContent = message;
-}
-
-// Called by your four buttons. Updates UI immediately, then saves to Firebase.
-// Called by your four buttons
-function setCapacity(color) {
-  // ✅ If not unlocked, show PIN overlay
-  if (!window.capacityUnlocked) {
-  document.getElementById('pinInput').value = ''; // ✅ always clear field
-  document.getElementById('pinOverlay').style.display = 'flex';
-  window.pendingColor = color; // store the button choice temporarily
-  return;
-}
-
-
-  // If unlocked, update normally
-  applyCapacityUI(color);
-  database.ref('ui/capacityLight').set({
-    color,
-    updatedAt: firebase.database.ServerValue.TIMESTAMP
-  });
-}
-
- 
-// One-time load: read the saved colour from Firebase (seed if empty)
-function restoreCapacity() {
-  database.ref('ui/capacityLight/color').once('value')
-    .then(snap => {
-      const saved = snap.val() || 'green';
-      applyCapacityUI(saved);
-
-      // Seed the path if it didn't exist yet
-      if (!snap.val()) {
-        return database.ref('ui/capacityLight').set({
-          color: 'green',
-          updatedAt: firebase.database.ServerValue.TIMESTAMP
-        });
-      }
-    })
-    .catch(() => {
-      // Fallback UI if Firebase read fails
-      applyCapacityUI('green');
-    });
-}
-
-// Live sync: if someone else changes the colour, update this page instantly
-function startCapacitySync() {
-  database.ref('ui/capacityLight/color').on('value', snap => {
-    const color = snap.val();
-    if (color) applyCapacityUI(color); // UI-only, no DB write (prevents loops)
-  });
-}
-
-// --- PIN protection logic ---
-const correctPin = "2238"; // 🔑 change this to your private PIN
-
-function checkPin() {
-  const entered = document.getElementById('pinInput').value.trim();
-  const error = document.getElementById('pinError');
-
-  if (entered === correctPin) {
-    // ✅ Unlock and apply pending change if any
-    window.capacityUnlocked = true;
-    document.getElementById('pinOverlay').style.display = 'none';
-    error.style.display = 'none';
-
-    if (window.pendingColor) {
-      setCapacity(window.pendingColor);
-      window.pendingColor = null;
+      console.log(`🤖 Auto-reply sent to ${number}. SID: ${reply.sid}`);
+    } catch (error) {
+      console.error('❌ Error sending auto-reply:', error.message);
     }
-  } else {
-    // ❌ Wrong PIN → reload the page immediately
-    location.reload();
   }
-}
 
-
-// Initialise on page load
-window.addEventListener('load', () => {
-  restoreCapacity();
-  startCapacitySync();
+  res.set('Content-Type', 'text/xml');
+  res.send('<Response></Response>');
 });
 
 
 
+app.post('/status-callback', (req, res) => {
+  const messageSid = req.body.MessageSid || 'unknown';
+  const messageStatus = req.body.MessageStatus || 'unknown';
+  console.log(`📬 Status update received: SID ${messageSid} → ${messageStatus}`);
 
-//fully working 17/06/25 1893 lines of code
-// version 20250516
-    </script>
-    
+  const ref = db.ref('messageHistory');
+  ref.orderByChild('messageSid').equalTo(messageSid).once('value', snapshot => {
+    if (!snapshot.exists()) {
+      console.warn(`⚠️ No Firebase entry found for SID: ${messageSid}`);
+    }
+    snapshot.forEach(child => {
+      child.ref.update({ status: messageStatus });
+      console.log(`✅ Firebase updated: ${messageSid} → ${messageStatus}`);
+    });
+  });
 
-</body>
-</html> 
+  res.sendStatus(200);
+});
+
+app.get('/message-status/:sid', async (req, res) => {
+  try {
+    const sid = req.params.sid;
+    const message = await client.messages(sid).fetch();
+    console.log(`📩 Fetched status from Twilio: ${sid} → ${message.status}`);
+    res.json({ sid: message.sid, status: message.status });
+  } catch (err) {
+    console.error(`❌ Failed to fetch status from Twilio:`, err.message);
+    res.status(500).json({ status: 'unknown', error: err.message });
+  }
+});
+
+app.get('/inbox', (req, res) => {
+  res.json(inboxMessages);
+});
+
+app.post('/reply', async (req, res) => {
+  const { to, message } = req.body;
+  if (!to || !message) {
+    return res.status(400).json({ success: false, error: "Missing 'to' or 'message'" });
+  }
+
+  const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+
+  try {
+    const sent = await client.messages.create({
+      from: whatsappNumber,
+      to: formattedTo,
+      body: message
+    });
+    console.log('✅ Freeform reply sent:', sent.sid);
+    res.json({ success: true, sid: sent.sid });
+  } catch (error) {
+    console.error('❌ Error sending freeform reply:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.use(express.static(path.join(__dirname)));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+}).on('error', err => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use.`);
+  } else {
+    throw err;
+  }
+});
