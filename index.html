@@ -1446,7 +1446,7 @@ function updateMessage() {
 
 function getDefaultDeliveryDate() {
   const now = new Date();
-  if (now.getHours() >= 15) {
+  if (now.getHours() >= 14) {
     now.setDate(now.getDate() + 1);
   }
   return now.toISOString().split('T')[0];
